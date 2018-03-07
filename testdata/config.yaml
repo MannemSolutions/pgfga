@@ -1,0 +1,76 @@
+# Copyright 2019 Bol.com
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+general:
+  loglevel: debug
+
+strict:
+  users: True
+  databases: True
+
+ldap:
+  basedn: 'OU=pro,DC=example,DC=com'
+  passwordfile: /pgcdfga_config/ldappassword
+  servers:
+    - ldap1.example.com
+  userfile: /pgcdfga_config/ldapuser
+  conn_retries: 1
+
+postgresql:
+  dsn:
+    host: 172.17.0.2
+    user: pgcdfga
+    connect_timeout: 10
+    sslcert: /pgcdfga_config/client_pgcdfga_chain.pem
+    sslkey: /pgcdfga_config/client_pgcdfga.key
+    sslrootcert: /pgcdfga_config/serverca.pem
+    sslmode: verify-ca
+
+databases:
+  sebas:
+    state: present
+    extensions:
+      pg_stat_statements:
+        schema: public
+        version: 1.5
+        state: present
+
+users:
+  dbateam:
+    auth: ldap-group
+    ldapbasedn: 'OU=pro,DC=example,DC=com'
+    ldapfilter: '(&(cn=team1)(!(cn=*-gon))(!(cn=*-goun)))'
+    memberof:
+    - opex
+  smannem:
+    auth: ldap-user
+    expiry: 2018-02-24
+    memberof:
+    - dba
+  backup_user:
+    auth: password
+    password: md5ed9441016fee39e0b1f8047bc02685a0
+    memberof:
+    - backup
+roles:
+  dba:
+    options:
+    - SUPERUSER
+    member:
+    - opex
+    strict: true
+  backup:
+    options:
+    - SUPERUSER
