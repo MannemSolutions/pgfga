@@ -22,6 +22,7 @@ Sebastiaan Mannem <smannem@bol.com>
 Jing Rao <jrao@bol.com>
 '''
 
+import os
 from copy import copy
 import hashlib
 import psycopg2
@@ -102,6 +103,9 @@ class PGConnection():
                     del dsn_params[key]
                 except KeyError:
                     pass
+        for key in ['sslkey', 'sslcert', 'sslrootcert']:
+            if key in dsn_params:
+                dsn_params[key] = os.path.realpath(os.path.expanduser(dsn_params[key]))
         return " ".join(["=".join((k, str(v))) for k, v in dsn_params.items()])
 
     def connect(self, database: str = 'postgres'):
@@ -274,7 +278,6 @@ class PGConnection():
                             [username, hashed_password]):
             query = sql.SQL('alter user {} with encrypted password %s').format(user)
             self.run_sql(query, [hashed_password])
-            print(len(hashed_password), hashed_password, query)
             return True
         return False
 

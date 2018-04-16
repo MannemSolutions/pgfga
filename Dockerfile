@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # IMAGE:          pgcdfga
-# VERSION:        0.8
+# VERSION:        0.9.4
 # PROJECT:        dockerhub.com/bol.com
 # DESCRIPTION:    Enforces Postgres Container Deployments Fine Grained Accesscontrol
 # TO_BUILD/TAG:   make
@@ -23,8 +23,13 @@ FROM python:3.6.4
 
 WORKDIR /usr/src/app
 
-COPY . /usr/src/app
+COPY pgcdfga /usr/src/app/pgcdfga/
+COPY setup.cfg setup.py /usr/src/app/
 
 RUN pip install --no-cache-dir .
+
+#RUN groupadd -r -g 999 pgcdfga && useradd -m --no-log-init -r -g pgcdfga -u 999 pgcdfga && mkdir ~pgcdfga/conf ~pgcdfga/.postgresql ~pgcdfga/.ldap_secrets && chown pgcdfga: ~pgcdfga/conf ~pgcdfga/.postgresql ~pgcdfga/.ldap_secrets && chmod 600 ~pgcdfga/conf ~pgcdfga/.postgresql ~pgcdfga/.ldap_secrets
+
+#USER 999
 
 ENTRYPOINT ["pgcdfga"]

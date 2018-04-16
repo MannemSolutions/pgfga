@@ -20,7 +20,10 @@ PROJECT := $(shell awk '/PROJECT:/ {print $$3}' Dockerfile)
 all: build tag
 
 clean:
-	rm -r pgcdfga.egg-info/
+	rm -rf pgcdfga.egg-info/
+	docker rmi ${IMAGE}:${VERSION} || echo Could not clean ${IMAGE}:${VERSION}
+	docker rmi ${PROJECT}/${IMAGE}:${VERSION} || echo Could not clean ${PROJECT}/${IMAGE}:${VERSION}
+	docker rmi ${PROJECT}/${IMAGE}:latest || echo Could not clean ${PROJECT}/${IMAGE}:latest
 
 run:
 	docker run --rm -t ${IMAGE}:${VERSION}
@@ -40,10 +43,10 @@ tag-latest:
 push: push-version push-latest
 
 push-version:
-	docker push ${PROJECT}/${IMAGE}:${VERSION}
+	docker push ${PROJECT}/${IMAGE}:${VERSION} || echo Could not push ${PROJECT}/${IMAGE}:${VERSION}
 
 push-latest:
-	docker push ${PROJECT}/${IMAGE}:latest
+	docker push ${PROJECT}/${IMAGE}:latest || echo Could not push ${PROJECT}/${IMAGE}:${VERSION}
 
 test:
 	flake8 .
