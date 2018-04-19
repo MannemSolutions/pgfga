@@ -42,6 +42,16 @@ class LDAPConnection():
         '''
         This method initializes a ldap connection object.
         '''
+        self.__config = ldapconfig
+        self.__connection = None
+
+        try:
+            if not ldapconfig['enabled']:
+                #ldap is disabled. Disable further checking
+                return
+        except KeyError:
+            pass
+
         try:
             for key in ['servers', 'user', 'password', 'port']:
                 if not ldapconfig[key]:
@@ -51,13 +61,16 @@ class LDAPConnection():
             raise LDAPConnectionException('ldapconnection should be a dict with the correct \
                                            key=value pairs.', error)
 
-        self.__config = ldapconfig
-        self.__connection = None
-
     def connect(self):
         '''
         This methods connect to a(n) ldap server(s).
         '''
+        try:
+            if not self.__config['enabled']:
+                print('ldap sync is disabled')
+                return None
+        except KeyError:
+            pass
         if not self.__connection:
             ldapservers = [Server(ldap_server, port=self.__config['port'], use_ssl=True,
                                   connect_timeout=1) for ldap_server in
@@ -71,8 +84,24 @@ class LDAPConnection():
         '''
         This function is used to get a list of users in a ldap group
         '''
+        try:
+            if not self.__config['enabled']:
+                print('ldap sync is disabled')
+                return []
+        except KeyError:
+            pass
+
         if not ldapbasedn:
             ldapbasedn = self.__config['basedn']
+        if not '(' in ldapfilter:
+            try:
+                filter_template = self.__config['filter_template']
+            except KeyError:
+                print('ldapfilter {} is without "(" and no filter_template is set'.format(ldapfilter))
+                raise
+            _ldapfilter = filter_template % ldapfilter
+            print('Using {} for group {}'.format(_ldapfilter, ldapfilter))
+            ldapfilter = _ldapfilter
         result_set = set()
         conn = self.connect()
         groups = conn.extend.standard.paged_search(search_base=ldapbasedn,

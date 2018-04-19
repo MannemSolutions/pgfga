@@ -26,6 +26,7 @@ import os
 from copy import copy
 import hashlib
 import psycopg2
+import tempfile
 from psycopg2 import sql
 
 VALID_ROLE_OPTIONS = {'SUPERUSER': 'rolsuper',
@@ -122,11 +123,40 @@ class PGConnection():
         #Split 'host=127.0.0.1 dbname=postgres' in {'host': '127.0.0.1', 'dbname': 'postgres'}
         dsn_params = copy(self.__dsn_params)
         dsn_params['dbname'] = database
+
+        #Work around. Secrets don't get proper permissions when uid!=0. That breaks client authentication.
+        #Therefore copying fle contents to a new file (in RAM) with proper permissions so that at least client auth works.
+        #And cleaning it up when connection is made
+        newkeyfile = None
+        try:
+            keyfile = os.path.realpath(os.path.expanduser(dsn_params['sslkey']))
+            keyfilemode = oct(os.stat(keyfile).st_mode)[-4:]
+            if keyfilemode != '0600':
+                print('Fixing permissions on key file {} ({})'.format(keyfile, keyfilemode))
+                key = open(keyfile, 'rb').read()
+                keylength = len(key)
+                _nkf_handle, newkeyfile = tempfile.mkstemp()
+                open(newkeyfile, 'wb').write(key)
+                dsn_params['sslkey'] = newkeyfile
+                print('New key file {} is created with correct permissions'.format(newkeyfile))
+        except KeyError:
+            #configdata['postgresql']['dsn']['sslkey'] is not set
+            pass
+        except Exception as e:
+            print('Could not set proper permissions for key file {}'.format(keyfile))
+            print(e)
+
         #Join {'host': '127.0.0.1', 'dbname': 'postgres'} into 'host=127.0.0.1 dbname=postgres'
         dsn = self.dsn(dsn_params)
 
         self.__conn[database] = conn = psycopg2.connect(dsn)
         conn.autocommit = True
+        if newkeyfile:
+            print('Cleaning key file {}'.format(newkeyfile))
+            for _run_index in range(5):
+                open(newkeyfile, 'wb').write(b'\x00'*keylength)
+                open(newkeyfile, 'wb').write(b'\xff'*keylength)
+            os.remove(newkeyfile)
 
     def run_sql(self, query, parameters=None, database: str = 'postgres'):
         '''

@@ -13,23 +13,24 @@
 # limitations under the License.
 
 # IMAGE:          pgcdfga
-# VERSION:        0.9.4
+# VERSION:        0.9.5
 # PROJECT:        dockerhub.com/bol.com
 # DESCRIPTION:    Enforces Postgres Container Deployments Fine Grained Accesscontrol
 # TO_BUILD/TAG:   make
 # TO_PUSH:        make push
 
-FROM python:3.6.4
+FROM python:3
 
 WORKDIR /usr/src/app
 
 COPY pgcdfga /usr/src/app/pgcdfga/
 COPY setup.cfg setup.py /usr/src/app/
 
-RUN pip install --no-cache-dir .
+RUN pip install --upgrade pip && pip install --no-cache-dir .
 
-#RUN groupadd -r -g 999 pgcdfga && useradd -m --no-log-init -r -g pgcdfga -u 999 pgcdfga && mkdir ~pgcdfga/conf ~pgcdfga/.postgresql ~pgcdfga/.ldap_secrets && chown pgcdfga: ~pgcdfga/conf ~pgcdfga/.postgresql ~pgcdfga/.ldap_secrets && chmod 600 ~pgcdfga/conf ~pgcdfga/.postgresql ~pgcdfga/.ldap_secrets
+RUN groupadd -r -g 999 pgcdfga && useradd -m --no-log-init -r -g pgcdfga -u 999 pgcdfga
+#&& mkdir ~pgcdfga/conf ~pgcdfga/.postgresql ~pgcdfga/.ldap_secrets && chown pgcdfga: ~pgcdfga/conf ~pgcdfga/.postgresql ~pgcdfga/.ldap_secrets && chmod 600 ~pgcdfga/conf ~pgcdfga/.postgresql ~pgcdfga/.ldap_secrets
 
-#USER 999
+USER 999
 
 ENTRYPOINT ["pgcdfga"]

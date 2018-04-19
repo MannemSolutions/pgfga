@@ -32,6 +32,7 @@ import datetime
 import re
 import yaml
 import time
+import getpass
 from pgcdfga.ldapconnection import LDAPConnection, LDAP_DEFAULTS
 from pgcdfga.pgconnection import PGConnection, DB_DEFAULTS, EXTENSION_DEFAULTS, \
                                  ROLE_DEFAULTS, USER_DEFAULTS, STRICT_DEFAULTS
@@ -108,7 +109,10 @@ def process_users(pgconn: PGConnection, users: dict, ldapconnection: LDAPConnect
             pgconn.createrole(username, ['LOGIN'])
             if auth == 'ldapgroup':
                 #create ldap group with ldap users
-                ldapfilter = userconfig['ldapfilter']
+                try:
+                    ldapfilter = userconfig['ldapfilter']
+                except KeyError:
+                    ldapfilter = username
                 members = ldapconnection.ldap_grp_mmbrs(ldapbasedn=ldapbasedn,
                                                         ldapfilter=ldapfilter)
                 for member in members:
@@ -218,7 +222,6 @@ def config(args):
     This function reads and returns config data
     '''
     #Configuration file look up.
-    LOGGER.debug("Opening config file %s", args.configfile)
     with open(args.configfile) as configfile:
         configdata = yaml.load(configfile)
 
@@ -235,33 +238,42 @@ def config(args):
                 LOGGER.debug('Switched to verbose output')
         except (KeyError, AttributeError):
             pass
-
-    try:
-        if args.ldappwfile:
-            ldappwfile = args.ldappwfile
-        else:
-            ldappwfile = configdata['ldap']['passwordfile']
-    except (KeyError, AttributeError):
-        ldappwfile = '~/ldap/password'
-    ldappwfile = os.path.realpath(os.path.expanduser(ldappwfile))
-
-    try:
-        if args.ldapuserfile:
-            ldapuserfile = args.ldapuserfile
-        else:
-            ldapuserfile = configdata['ldap']['userfile']
-    except (KeyError, AttributeError):
-        ldapuserfile = '~/.ldap/user'
-    ldapuserfile = os.path.realpath(os.path.expanduser(ldapuserfile))
+    LOGGER.debug("Running as user %s (uid %s)", getpass.getuser(), os.getuid())
+    LOGGER.debug("Running with config file %s", args.configfile)
 
     try:
         ldapconfig = dict_with_defaults(configdata['ldap'], LDAP_DEFAULTS)
     except:
         ldapconfig = LDAP_DEFAULTS
-    if not ldapconfig['user']:
-        ldapconfig['user'] = open(ldapuserfile).read().strip()
-    if not ldapconfig['password']:
-        ldapconfig['password'] = open(ldappwfile).read().strip()
+
+    try:
+        ldap_enabled = ldapconfig['enabled']
+    except:
+        ldap_enabled = True
+
+    if ldap_enabled:
+        try:
+            if args.ldappwfile:
+                ldappwfile = args.ldappwfile
+            else:
+                ldappwfile = configdata['ldap']['passwordfile']
+        except (KeyError, AttributeError):
+            ldappwfile = '~/ldap/password'
+        ldappwfile = os.path.realpath(os.path.expanduser(ldappwfile))
+
+        try:
+            if args.ldapuserfile:
+                ldapuserfile = args.ldapuserfile
+            else:
+                ldapuserfile = configdata['ldap']['userfile']
+        except (KeyError, AttributeError):
+            ldapuserfile = '~/.ldap/user'
+        ldapuserfile = os.path.realpath(os.path.expanduser(ldapuserfile))
+
+        if not ldapconfig['user']:
+            ldapconfig['user'] = open(ldapuserfile).read().strip()
+        if not ldapconfig['password']:
+            ldapconfig['password'] = open(ldappwfile).read().strip()
 
     return configdata, ldapconfig
 
@@ -337,7 +349,7 @@ def main():
                 delay = parsed_args.rundelay
             else:
                 delay = configdata['general']['rundelay']
-        except (KeyError, AttributeError, TypeError):
+        except (KeyError, AttributeError, TypeError, UnboundLocalError):
             print('rundelay not set')
             break
         if delay > 0:

@@ -26,7 +26,7 @@ install_requirements = [
 
 setup(
     name='pgcdfga',
-    version='0.9.4',
+    version='0.9.5',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     install_requires=install_requirements,
     entry_points={

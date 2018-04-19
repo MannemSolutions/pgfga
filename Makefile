@@ -17,7 +17,7 @@ IMAGE := $(shell awk '/IMAGE:/ {print $$3}' Dockerfile)
 VERSION := $(shell awk '/VERSION:/ {print $$3}' Dockerfile)
 PROJECT := $(shell awk '/PROJECT:/ {print $$3}' Dockerfile)
 
-all: build tag
+all: clean build tag push
 
 clean:
 	rm -rf pgcdfga.egg-info/
