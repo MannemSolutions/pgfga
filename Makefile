@@ -14,10 +14,11 @@
 
 # Read docker info from the actual Dockerfile
 IMAGE := $(shell awk '/IMAGE:/ {print $$3}' Dockerfile)
-VERSION := $(shell awk '/VERSION:/ {print $$3}' Dockerfile)
+VERSION := $(shell cat pgcdfga/__init__.py | grep "^__version__" | awk '{print $$3}' | tr -d '"')
 PROJECT := $(shell awk '/PROJECT:/ {print $$3}' Dockerfile)
 
 all: clean build tag push
+all-latest: clean build tag-latest push-latest
 
 clean:
 	rm -rf pgcdfga.egg-info/

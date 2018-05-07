@@ -30,9 +30,9 @@ import sys
 import os
 import datetime
 import re
-import yaml
 import time
 import getpass
+import yaml
 from pgcdfga.ldapconnection import LDAPConnection, LDAP_DEFAULTS
 from pgcdfga.pgconnection import PGConnection, DB_DEFAULTS, EXTENSION_DEFAULTS, \
                                  ROLE_DEFAULTS, USER_DEFAULTS, STRICT_DEFAULTS
@@ -68,7 +68,8 @@ def process_users(pgconn: PGConnection, users: dict, ldapconnection: LDAPConnect
     '''
     errorcount = 0
     for username, userconfig in users.items():
-        LOGGER.debug("Processing user %s", username)
+        logging.debug("Processing user %s", username)
+        logging.debug("User config: %s", userconfig)
         try:
             # merge USER_DEFAULTS into this userconfig
             userconfig = dict_with_defaults(userconfig, USER_DEFAULTS)
@@ -87,12 +88,12 @@ def process_users(pgconn: PGConnection, users: dict, ldapconnection: LDAPConnect
                 #If expiry date has passed, remove account / group
                 if datetime.datetime.now() > expiry:
                     ensure = 'absent'
-                    LOGGER.debug("User %s is expired", username)
+                    logging.debug("User %s is expired", username)
 
             # Remove if ensure=absent
             if  ensure == 'absent':
                 pgconn.droprole(username)
-                LOGGER.debug("Dropping user %s", username)
+                logging.debug("Dropping user %s", username)
                 continue
 
             auth = userconfig['auth'].lower()
@@ -103,12 +104,13 @@ def process_users(pgconn: PGConnection, users: dict, ldapconnection: LDAPConnect
             auth = NON_WORD_CHAR_RE.sub('', auth)
             if not auth in AUTH_ENUM:
                 auth = 'client_cert'
-            LOGGER.debug("auth = %s", auth)
+            logging.debug("auth = %s", auth)
 
-            LOGGER.debug("Creating user/role %s", username)
-            pgconn.createrole(username, ['LOGIN'])
+            logging.debug("Creating user/role %s", username)
             if auth == 'ldapgroup':
                 #create ldap group with ldap users
+                #For ldap group, we don't specify options on group, but rather on direct users.
+                pgconn.createrole(username)
                 try:
                     ldapfilter = userconfig['ldapfilter']
                 except KeyError:
@@ -116,24 +118,28 @@ def process_users(pgconn: PGConnection, users: dict, ldapconnection: LDAPConnect
                 members = ldapconnection.ldap_grp_mmbrs(ldapbasedn=ldapbasedn,
                                                         ldapfilter=ldapfilter)
                 for member in members:
-                    LOGGER.debug("creating member %s", member)
-                    pgconn.createrole(member)
+                    logging.debug("creating member %s", member)
+                    #For ldap group, we don't specify options on group, but rather on direct users.
+                    pgconn.createrole(member, ['LOGIN'] + userconfig['options'])
                     pgconn.grantrole(member, username)
-                    LOGGER.debug("Resetting password for member %s", member)
+                    logging.debug("Resetting password for member %s", member)
                     pgconn.resetpassword(member)
+            else:
+                pgconn.createrole(username, ['LOGIN'] + userconfig['options'])
+
             if auth in ['ldapuser', 'clientcert', 'ldapgroup']:
-                LOGGER.debug("Resetting password for user %s", username)
+                logging.debug("Resetting password for user %s", username)
                 pgconn.resetpassword(username)
             else:
                 if userconfig['password']:
                     pgconn.setpassword(username, userconfig['password'])
 
             for role in userconfig['memberof']:
-                LOGGER.debug("Granting %s to %s", role, username)
+                logging.debug("Granting %s to %s", role, username)
                 pgconn.grantrole(username, role)
         except Exception as error:
-            pgconn.strict_params['roles'] = False
-            LOGGER.exception(str(error))
+            pgconn.strict_params['users'] = False
+            logging.exception(str(error))
             errorcount += 1
     return errorcount
 
@@ -143,33 +149,35 @@ def process_databases(pgconn: PGConnection, databases: dict):
     '''
     errorcount = 0
     for dbname, dbconfig in databases.items():
-        LOGGER.debug("Processing database %s", dbname)
+        logging.debug("Processing database %s", dbname)
         try:
             # merge USER_DEFAULTS into this databaseconfig
             dbconfig = dict_with_defaults(dbconfig, DB_DEFAULTS)
             if dbconfig['ensure'] == 'absent':
-                LOGGER.debug("Dropping database %s", dbname)
+                logging.debug("Dropping database %s", dbname)
                 pgconn.dropdb(dbname)
             else:
-                LOGGER.debug("Creating database %s", dbname)
+                logging.debug("Creating database %s", dbname)
                 pgconn.createdb(dbname, dbconfig['owner'])
         except Exception as error:
-            LOGGER.exception(str(error))
+            pgconn.strict_params['databases'] = False
+            logging.exception(str(error))
             errorcount += 1
         for extname, extconfig in dbconfig['extensions'].items():
             try:
                 # merge USER_DEFAULTS into this databaseconfig
                 extconfig = dict_with_defaults(extconfig, EXTENSION_DEFAULTS)
                 if extconfig['ensure'] == 'absent':
-                    LOGGER.debug("Dropping extension %s from database %s", extname, dbname)
+                    logging.debug("Dropping extension %s from database %s", extname, dbname)
                     pgconn.dropextension(extname, dbname)
                 else:
-                    LOGGER.debug("Creating extension %s in database %s", extname, dbname)
+                    logging.debug("Creating extension %s in database %s", extname, dbname)
                     schema = extconfig['schema']
                     version = extconfig['version']
                     pgconn.createextension(extname, dbname, schema, version)
             except Exception as error:
-                LOGGER.exception(str(error))
+                pgconn.strict_params['extensions'] = False
+                logging.exception(str(error))
                 errorcount += 1
     return errorcount
 
@@ -179,21 +187,22 @@ def process_roles(pgconn: PGConnection, roles: dict):
     '''
     errorcount = 0
     for rolename, roleconfig in roles.items():
-        LOGGER.debug("Processing role %s", rolename)
+        logging.debug("Processing role %s", rolename)
         try:
             # merge USER_DEFAULTS into this databaseconfig
             roleconfig = dict_with_defaults(roleconfig, ROLE_DEFAULTS)
             if roleconfig['ensure'] == 'absent':
-                LOGGER.debug("Dropping role %s", rolename)
+                logging.debug("Dropping role %s", rolename)
                 pgconn.droprole(rolename)
             else:
-                LOGGER.debug("Creating role %s", rolename)
+                logging.debug("Creating role %s", rolename)
                 pgconn.createrole(rolename, roleconfig['options'])
                 for parent in roleconfig['memberof']:
-                    LOGGER.debug("Granting role %s to %s", parent, rolename)
+                    logging.debug("Granting role %s to %s", parent, rolename)
                     pgconn.grantrole(rolename, parent)
         except Exception as error:
-            LOGGER.exception(str(error))
+            pgconn.strict_params['users'] = False
+            logging.exception(str(error))
             errorcount += 1
     return errorcount
 
@@ -227,19 +236,22 @@ def config(args):
 
     #Configure logging
     if args.verbose:
-        LOGGER.setLevel(logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG)
     else:
         try:
             loglevel = configdata['general']['loglevel']
-            if isinstance(loglevel, str):
-                loglevel = LOG_LEVEL_ENUM[loglevel.upper()]
+
             if isinstance(loglevel, int):
-                LOGGER.setLevel(loglevel)
-                LOGGER.debug('Switched to verbose output')
+                numeric_level = loglevel
+            elif isinstance(loglevel, str):
+                numeric_level = getattr(logging, loglevel.upper(), None)
+                if not isinstance(numeric_level, int):
+                    raise ValueError('Invalid log level: %s' % loglevel)
+            logging.basicConfig(level=numeric_level)
         except (KeyError, AttributeError):
             pass
-    LOGGER.debug("Running as user %s (uid %s)", getpass.getuser(), os.getuid())
-    LOGGER.debug("Running with config file %s", args.configfile)
+    logging.debug("Running as user %s (uid %s)", getpass.getuser(), os.getuid())
+    logging.debug("Running with config file %s", args.configfile)
 
     try:
         ldapconfig = dict_with_defaults(configdata['ldap'], LDAP_DEFAULTS)
@@ -297,47 +309,56 @@ def main():
             ldapconn = LDAPConnection(ldapconfig)
 
             if pgconn.is_standby():
-                raise Exception('Postgres (%s) cluster is standby', pgconn.dsn())
+                raise Exception('Postgres ({}) cluster is standby'.format(pgconn.dsn()))
 
-            try:
-                LOGGER.debug("Processing users %s", configdata['users'])
-                errorcount += process_users(pgconn, configdata['users'], ldapconn)
-            except Exception as error:
-                LOGGER.exception(str(error))
-            try:
-                LOGGER.debug("Processing databases %s", configdata['databases'])
-                errorcount+ process_databases(pgconn, configdata['databases'])
-            except Exception as error:
-                LOGGER.exception(str(error))
-            try:
-                LOGGER.debug("Processing roles %s", configdata['roles'])
-                errorcount += process_roles(pgconn, configdata['roles'])
-            except Exception as error:
-                LOGGER.exception(str(error))
+            if 'users' in configdata:
+                try:
+                    logging.debug("Processing users %s", configdata['users'])
+                    errorcount += process_users(pgconn, configdata['users'], ldapconn)
+                except Exception as error:
+                    logging.exception(str(error))
+            else:
+                logging.debug("No user config set in configdata")
+            if 'databases' in configdata:
+                try:
+                    logging.debug("Processing databases %s", configdata['databases'])
+                    errorcount += process_databases(pgconn, configdata['databases'])
+                except Exception as error:
+                    logging.exception(str(error))
+            else:
+                logging.debug("No database config set in configdata")
+            if 'roles' in configdata:
+                try:
+                    logging.debug("Processing roles %s", configdata['roles'])
+                    errorcount += process_roles(pgconn, configdata['roles'])
+                except Exception as error:
+                    logging.exception(str(error))
+            else:
+                logging.debug("No database config set in configdata")
 
-            if pgconn.strict_params['roles']:
-                LOGGER.debug("Strictifying roles")
+            if pgconn.strict_params['users']:
+                logging.debug("Strictifying roles")
                 try:
                     pgconn.strictifyroles()
                 except Exception as error:
-                    LOGGER.exception(str(error))
+                    logging.exception(str(error))
             if pgconn.strict_params['databases']:
-                LOGGER.debug("Strictifying databases")
+                logging.debug("Strictifying databases")
                 try:
                     pgconn.strictifydatabases()
                 except Exception as error:
-                    LOGGER.exception(str(error))
+                    logging.exception(str(error))
             if pgconn.strict_params['extensions']:
-                LOGGER.debug("Strictifying extensions")
+                logging.debug("Strictifying extensions")
                 try:
                     pgconn.strictifyextensions()
                 except Exception as error:
-                    LOGGER.exception(str(error))
+                    logging.exception(str(error))
 
-            LOGGER.info("Finished applying config")
+            logging.info("Finished applying config")
 
         except:
-            LOGGER.exception('Error occurred while processing:')
+            logging.exception('Error occurred while processing:')
             errorcount += 1
             #returncode is actually % 256, so if that is 0, add an additional 1
             if errorcount and not errorcount % 256:
@@ -353,11 +374,8 @@ def main():
             print('rundelay not set')
             break
         if delay > 0:
-            LOGGER.debug("Waiting for %s", str(delay))
+            logging.debug("Waiting for %s", str(delay))
             time.sleep(delay)
         else:
             break
     sys.exit(errorcount)
-
-logging.basicConfig()
-LOGGER = logging.getLogger('pg_ldap_sync')

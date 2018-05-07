@@ -13,7 +13,6 @@
 # limitations under the License.
 
 # IMAGE:          pgcdfga
-# VERSION:        0.9.5
 # PROJECT:        dockerhub.com/bol.com
 # DESCRIPTION:    Enforces Postgres Container Deployments Fine Grained Accesscontrol
 # TO_BUILD/TAG:   make

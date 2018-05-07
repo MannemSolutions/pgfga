@@ -24,9 +24,10 @@ Jing Rao <jrao@bol.com>
 
 import os
 from copy import copy
+import logging
 import hashlib
-import psycopg2
 import tempfile
+import psycopg2
 from psycopg2 import sql
 
 VALID_ROLE_OPTIONS = {'SUPERUSER': 'rolsuper',
@@ -56,16 +57,16 @@ EXTENSION_DEFAULTS = {'schema': 'public',
 
 ROLE_DEFAULTS = {'ensure': 'present',
                  'memberof': [],
-                 'options': [],
-                 'strict': True}
+                 'options': []}
 
 USER_DEFAULTS = {'ensure': 'present',
                  'auth': 'password',
                  'expiry': None,
                  'memberof': [],
-                 'password': None}
+                 'password': None,
+                 'options': []}
 
-STRICT_DEFAULTS = {'roles': True, 'databases': False, 'extensions': True}
+STRICT_DEFAULTS = {'users': True, 'databases': False, 'extensions': True}
 
 class PGConnectionException(Exception):
     '''
@@ -109,6 +110,15 @@ class PGConnection():
                 dsn_params[key] = os.path.realpath(os.path.expanduser(dsn_params[key]))
         return " ".join(["=".join((k, str(v))) for k, v in dsn_params.items()])
 
+    def strict_option(self, chapter=''):
+        '''
+        This method returns the strict config setting, which can enable / disable removing objects.
+        '''
+        try:
+            return self.strict_params[chapter]
+        except KeyError:
+            return STRICT_DEFAULTS[chapter]
+
     def connect(self, database: str = 'postgres'):
         '''
         Connect to a pg cluster. You can specify the connectstring, or use the one
@@ -124,27 +134,28 @@ class PGConnection():
         dsn_params = copy(self.__dsn_params)
         dsn_params['dbname'] = database
 
-        #Work around. Secrets don't get proper permissions when uid!=0. That breaks client authentication.
-        #Therefore copying fle contents to a new file (in RAM) with proper permissions so that at least client auth works.
+        #Work around. Secrets don't get proper permissions when uid!=0.
+        #That breaks client authentication. Therefore copying fle contents to a new file
+        #(in RAM) with proper permissions so that at least client auth works.
         #And cleaning it up when connection is made
         newkeyfile = None
         try:
             keyfile = os.path.realpath(os.path.expanduser(dsn_params['sslkey']))
             keyfilemode = oct(os.stat(keyfile).st_mode)[-4:]
             if keyfilemode != '0600':
-                print('Fixing permissions on key file {} ({})'.format(keyfile, keyfilemode))
+                logging.info('Fixing permissions on key file %s (%s)', keyfile, keyfilemode)
                 key = open(keyfile, 'rb').read()
                 keylength = len(key)
                 _nkf_handle, newkeyfile = tempfile.mkstemp()
                 open(newkeyfile, 'wb').write(key)
                 dsn_params['sslkey'] = newkeyfile
-                print('New key file {} is created with correct permissions'.format(newkeyfile))
+                logging.debug('New key file %s is created with correct permissions', newkeyfile)
         except KeyError:
             #configdata['postgresql']['dsn']['sslkey'] is not set
             pass
-        except Exception as e:
-            print('Could not set proper permissions for key file {}'.format(keyfile))
-            print(e)
+        except Exception as error:
+            logging.debug('Could not set proper permissions for key file %s', keyfile)
+            logging.exception(str(error))
 
         #Join {'host': '127.0.0.1', 'dbname': 'postgres'} into 'host=127.0.0.1 dbname=postgres'
         dsn = self.dsn(dsn_params)
@@ -152,7 +163,7 @@ class PGConnection():
         self.__conn[database] = conn = psycopg2.connect(dsn)
         conn.autocommit = True
         if newkeyfile:
-            print('Cleaning key file {}'.format(newkeyfile))
+            logging.debug('Cleaning key file %s', newkeyfile)
             for _run_index in range(5):
                 open(newkeyfile, 'wb').write(b'\x00'*keylength)
                 open(newkeyfile, 'wb').write(b'\xff'*keylength)
@@ -167,9 +178,10 @@ class PGConnection():
         self.connect(database=database)
         cur = self.__conn[database].cursor()
         try:
+            logging.debug('query: %s', query)
             cur.execute(query, parameters)
-        except:
-            print(query)
+        except Exception as error:
+            logging.exception(str(error))
             raise
         try:
             columns = [i[0] for i in cur.description]
@@ -190,6 +202,10 @@ class PGConnection():
         '''
         This method will remove a database if it exists.
         '''
+        if not self.strict_option('databases'):
+            logging.info('Not dropping database %s (config/strict/databases is not True)', dbname)
+            return False
+
         if self.run_sql('SELECT datname FROM pg_database WHERE datname = %s', [dbname]):
             query = sql.SQL("DROP DATABASE {}").format(sql.Identifier(dbname))
             self.run_sql(query)
@@ -240,7 +256,7 @@ class PGConnection():
             schema = sql.Identifier(schemaname['schemaname'])
             grant_query = sql.SQL("GRANT SELECT ON ALL TABLES IN SCHEMA {} TO {}")
             grant_query = grant_query.format(schema, readonlyrole)
-            print(grant_query)
+            logging.debug(grant_query)
             self.run_sql(grant_query, database=dbname)
         return ret
 
@@ -248,6 +264,10 @@ class PGConnection():
         '''
         This method will remove a user / role if it exists.
         '''
+        if not self.strict_option('users'):
+            logging.info('Not dropping user/role %s (config/strict/roless is not True)', rolename)
+            return False
+
         if self.run_sql('SELECT rolname FROM pg_roles WHERE rolname = %s \
                          AND rolname != CURRENT_USER', [rolename]):
             role = sql.Identifier(rolename)
@@ -276,10 +296,12 @@ class PGConnection():
         options = set([option.upper() for option in options])
         valid_role_options_set = set(VALID_ROLE_OPTIONS.keys())
         for option in options & valid_role_options_set:
+            logging.debug('createrole %s %s', rolename, option)
             option_check_query = sql.SQL('SELECT rolname FROM pg_roles \
                                           WHERE rolname = %s \
                                           AND ' + VALID_ROLE_OPTIONS[option])
             if not self.run_sql(option_check_query, [rolename]):
+                logging.debug('createrole ALTER %s %s', rolename, option)
                 option_set_query = sql.SQL('ALTER ROLE {} WITH ' + option).format(role)
                 self.run_sql(option_set_query)
                 ret = True
@@ -298,14 +320,14 @@ class PGConnection():
 
         user = sql.Identifier(username)
 
-        if len(password) == 35 or password[:3] == 'md5':
+        if len(password) == 35 and password[:3] == 'md5':
             hashed_password = password
         else:
             md5 = hashlib.md5()
             md5.update((password+username).encode())
             hashed_password = 'md5'+md5.hexdigest()
-        if not self.run_sql('SELECT usename FROM pg_shadow WHERE usename = %s AND passwd != %s',
-                            [username, hashed_password]):
+        if self.run_sql('SELECT usename FROM pg_shadow WHERE usename = %s \
+                         AND COALESCE(passwd, %s) != %s', [username, '', hashed_password]):
             query = sql.SQL('alter user {} with encrypted password %s').format(user)
             self.run_sql(query, [hashed_password])
             return True
@@ -336,11 +358,11 @@ class PGConnection():
         except KeyError:
             self.__rolegrants[rolename] = set([username])
         if not self.run_sql("select granted.rolname granted_role, grantee.rolname \
-                             grantee_role from pg_auth_members auth inner join pg_roles \
-                             granted on auth.roleid = granted.oid inner join pg_roles \
-                             grantee on auth.member = grantee.oid where \
-                             granted.rolname = %s and grantee.rolname = %s",
-                             [rolename, username]):
+                                 grantee_role from pg_auth_members auth inner join pg_roles \
+                                 granted on auth.roleid = granted.oid inner join pg_roles \
+                                 grantee on auth.member = grantee.oid where \
+                                 granted.rolname = %s and grantee.rolname = %s",
+                            [rolename, username]):
             user = sql.Identifier(username)
             role = sql.Identifier(rolename)
             query = sql.SQL("GRANT {} TO {}").format(role, user)
@@ -430,6 +452,11 @@ class PGConnection():
         '''
         This method will drop an extension from a database.
         '''
+        if not self.strict_option('extensions'):
+            logging.info('Not dropping extension %s (config/strict/extensions is not True)',
+                          extension)
+            return False
+
         if self.run_sql('SELECT datname FROM pg_database WHERE datname = %s', [database]):
             query = sql.SQL("DROP EXTENSION IF EXISTS {}").format(sql.Identifier(extension))
             self.run_sql(query, database=database)
