@@ -68,6 +68,7 @@ USER_DEFAULTS = {'ensure': 'present',
 
 STRICT_DEFAULTS = {'users': True, 'databases': False, 'extensions': True}
 
+
 class PGConnectionException(Exception):
     '''
     This exception is raised when invalid data is fed to a PGConnectionException
@@ -130,14 +131,14 @@ class PGConnection():
                 return
         except (KeyError, AttributeError):
             pass
-        #Split 'host=127.0.0.1 dbname=postgres' in {'host': '127.0.0.1', 'dbname': 'postgres'}
+        # Split 'host=127.0.0.1 dbname=postgres' in {'host': '127.0.0.1', 'dbname': 'postgres'}
         dsn_params = copy(self.__dsn_params)
         dsn_params['dbname'] = database
 
-        #Work around. Secrets don't get proper permissions when uid!=0.
-        #That breaks client authentication. Therefore copying fle contents to a new file
-        #(in RAM) with proper permissions so that at least client auth works.
-        #And cleaning it up when connection is made
+        # Work around. Secrets don't get proper permissions when uid!=0.
+        # That breaks client authentication. Therefore copying fle contents to a new file
+        # (in RAM) with proper permissions so that at least client auth works.
+        # And cleaning it up when connection is made
         newkeyfile = None
         try:
             keyfile = os.path.realpath(os.path.expanduser(dsn_params['sslkey']))
@@ -151,13 +152,13 @@ class PGConnection():
                 dsn_params['sslkey'] = newkeyfile
                 logging.debug('New key file %s is created with correct permissions', newkeyfile)
         except KeyError:
-            #configdata['postgresql']['dsn']['sslkey'] is not set
+            # configdata['postgresql']['dsn']['sslkey'] is not set
             pass
-        except Exception as error:
+        except OSError as error:
             logging.debug('Could not set proper permissions for key file %s', keyfile)
             logging.exception(str(error))
 
-        #Join {'host': '127.0.0.1', 'dbname': 'postgres'} into 'host=127.0.0.1 dbname=postgres'
+        # Join {'host': '127.0.0.1', 'dbname': 'postgres'} into 'host=127.0.0.1 dbname=postgres'
         dsn = self.dsn(dsn_params)
 
         self.__conn[database] = conn = psycopg2.connect(dsn)
@@ -165,8 +166,8 @@ class PGConnection():
         if newkeyfile:
             logging.debug('Cleaning key file %s', newkeyfile)
             for _run_index in range(5):
-                open(newkeyfile, 'wb').write(b'\x00'*keylength)
-                open(newkeyfile, 'wb').write(b'\xff'*keylength)
+                open(newkeyfile, 'wb').write(b'\x00' * keylength)
+                open(newkeyfile, 'wb').write(b'\xff' * keylength)
             os.remove(newkeyfile)
 
     def run_sql(self, query, parameters=None, database: str = 'postgres'):
@@ -237,7 +238,7 @@ class PGConnection():
             alterquery = sql.SQL("ALTER DATABASE {} OWNER TO {}").format(database, owner)
             self.run_sql(alterquery)
             ret = True
-        #opex role has full permissions on every user database
+        # opex role has full permissions on every user database
         if self.grantrole('opex', ownername):
             ret = True
         if self.grantrole('readonly', readonlyrolename):
@@ -249,7 +250,6 @@ class PGConnection():
                 FROM information_schema.role_table_grants \
                 WHERE grantee = %s \
                 and privilege_type = 'SELECT')"
-
 
         for schemaname in self.run_sql(ungranted_schemas_query, [readonlyrolename],
                                        database=dbname):
@@ -271,8 +271,13 @@ class PGConnection():
         if self.run_sql('SELECT rolname FROM pg_roles WHERE rolname = %s \
                          AND rolname != CURRENT_USER', [rolename]):
             role = sql.Identifier(rolename)
-            reassign_query = sql.SQL("REASSIGN OWNED BY {} TO postgres").format(role)
-            self.run_sql(reassign_query)
+            db_query = "select db.datname, o.rolname as owner from pg_database db inner join \
+                        pg_roles o on db.datdba = o.oid where db.datname != 'template0'"
+            databases = [(db['datname'], db['owner']) for db in self.run_sql(db_query)]
+            for database, ownername in databases:
+                new_owner = sql.Identifier(ownername)
+                reassign_query = sql.SQL("REASSIGN OWNED BY {} TO {}").format(role, new_owner)
+                self.run_sql(query=reassign_query, database=database)
             drop_query = sql.SQL("DROP ROLE {}").format(role)
             self.run_sql(drop_query)
             return True
@@ -282,7 +287,7 @@ class PGConnection():
         '''
         This method will create a role if it does not exist.
         '''
-        if not rolename in self.__rolegrants:
+        if rolename not in self.__rolegrants:
             self.__rolegrants[rolename] = set()
 
         ret = False
@@ -324,8 +329,8 @@ class PGConnection():
             hashed_password = password
         else:
             md5 = hashlib.md5()
-            md5.update((password+username).encode())
-            hashed_password = 'md5'+md5.hexdigest()
+            md5.update((password + username).encode())
+            hashed_password = 'md5' + md5.hexdigest()
         if self.run_sql('SELECT usename FROM pg_shadow WHERE usename = %s \
                          AND COALESCE(passwd, %s) != %s', [username, '', hashed_password]):
             query = sql.SQL('alter user {} with encrypted password %s').format(user)
@@ -390,30 +395,34 @@ class PGConnection():
         all grants that where not specified will be revoked.
         This limits role grants to only as specified in the underlying config.
         '''
-        grantees_query = 'SELECT rolname grantee FROM pg_roles r JOIN pg_auth_members a \
-                          ON r.oid=a.member WHERE a.roleid = (SELECT oid FROM \
-                             pg_roles WHERE rolname = %s)'
-        revoked = 0
-        all_managed_roles = set(PROTECTED_ROLES)
+        try:
+            grantees_query = 'SELECT rolname grantee FROM pg_roles r JOIN pg_auth_members a \
+                              ON r.oid=a.member WHERE a.roleid = (SELECT oid FROM \
+                                 pg_roles WHERE rolname = %s)'
+            revoked_or_dropped = 0
+            all_managed_roles = set(PROTECTED_ROLES)
 
-        for granted, grantees in self.__rolegrants.items():
-            all_managed_roles.add(granted)
-            all_managed_roles |= set(grantees)
-            actual_grantees = self.run_sql(grantees_query, [granted])
-            actual_grantees = set([r['grantee'] for r in actual_grantees])
-            overgranted = actual_grantees - grantees
-            for grantee in overgranted:
-                self.revokerole(grantee, granted)
-                revoked += 1
+            for granted, grantees in self.__rolegrants.items():
+                all_managed_roles.add(granted)
+                all_managed_roles |= set(grantees)
+                actual_grantees = self.run_sql(grantees_query, [granted])
+                actual_grantees = set([r['grantee'] for r in actual_grantees])
+                overgranted = actual_grantees - grantees
+                for grantee in overgranted:
+                    self.revokerole(grantee, granted)
+                    revoked_or_dropped += 1
 
-        all_existing_roles = self.run_sql('SELECT rolname FROM pg_roles')
-        for role in all_existing_roles:
-            rolename = role['rolname']
-            if rolename in all_managed_roles:
-                continue
-            self.droprole(rolename)
+            all_existing_roles = self.run_sql('SELECT rolname FROM pg_roles')
+            for role in all_existing_roles:
+                rolename = role['rolname']
+                if rolename in all_managed_roles:
+                    continue
+                self.droprole(rolename)
+                revoked_or_dropped += 1
+        except Exception as error:
+            logging.exception(str(error))
 
-        if revoked:
+        if revoked_or_dropped:
             return True
         return False
 
@@ -424,13 +433,21 @@ class PGConnection():
         This limits database to only as specified in the underlying config.
         Use with care.
         '''
-        for dbrow in self.run_sql('SELECT datname FROM pg_database'):
-            dbname = dbrow['datname']
-            if dbname in self.__databases:
-                continue
-            if dbname in PROTECTED_DBS:
-                continue
-            self.dropdb(dbname)
+        dropped = 0
+        try:
+            for dbrow in self.run_sql('SELECT datname FROM pg_database'):
+                dbname = dbrow['datname']
+                if dbname in self.__databases:
+                    continue
+                if dbname in PROTECTED_DBS:
+                    continue
+                self.dropdb(dbname)
+                dropped += 1
+        except Exception as error:
+            logging.exception(str(error))
+        if dropped:
+            return True
+        return False
 
     def strictifyextensions(self):
         '''
@@ -438,15 +455,23 @@ class PGConnection():
         all extensions that are not managed by this programm, will be cleaned
         This limits extensions to only as specified in the underlying config.
         '''
-        for dbname in self.__databases:
-            try:
-                managedextensions = self.__extensions[dbname]
-            except:
-                managedextensions = []
-            for extrow in self.run_sql('SELECT extname FROM pg_extension', database=dbname):
-                extname = extrow['extname']
-                if not extname in managedextensions:
-                    self.dropextension(extname, dbname)
+        dropped = 0
+        try:
+            for dbname in self.__databases:
+                try:
+                    managedextensions = self.__extensions[dbname]
+                except KeyError:
+                    managedextensions = []
+                for extrow in self.run_sql('SELECT extname FROM pg_extension', database=dbname):
+                    extname = extrow['extname']
+                    if extname not in managedextensions:
+                        self.dropextension(extname, dbname)
+                        dropped += 1
+        except Exception as error:
+            logging.exception(str(error))
+        if dropped:
+            return True
+        return False
 
     def dropextension(self, extension, database):
         '''
@@ -454,7 +479,7 @@ class PGConnection():
         '''
         if not self.strict_option('extensions'):
             logging.info('Not dropping extension %s (config/strict/extensions is not True)',
-                          extension)
+                         extension)
             return False
 
         if self.run_sql('SELECT datname FROM pg_database WHERE datname = %s', [database]):
@@ -476,7 +501,7 @@ class PGConnection():
                 self.dropextension(extensionname, dbname)
         try:
             self.__extensions[dbname].add(extensionname)
-        except:
+        except KeyError:
             self.__extensions[dbname] = set([extensionname])
 
         if not self.run_sql('SELECT extname FROM pg_extension WHERE extname = %s',

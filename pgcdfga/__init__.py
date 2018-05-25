@@ -12,4 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.9.6"
+'''
+This module is used to manage postgres objects like users, databases, extensions and roles.
+It can be configured with a yaml hash and it can manage users from an ldap group too.
+'''
+
+__version__ = "0.9.7"

@@ -17,8 +17,9 @@ IMAGE := $(shell awk '/IMAGE:/ {print $$3}' Dockerfile)
 VERSION := $(shell cat pgcdfga/__init__.py | grep "^__version__" | awk '{print $$3}' | tr -d '"')
 PROJECT := $(shell awk '/PROJECT:/ {print $$3}' Dockerfile)
 
-all: clean build tag push
-all-latest: clean build tag-latest push-latest
+all: clean test build tag push
+all-latest: clean test build tag-latest push-latest
+test: test-flake8 test-pylint test-coverage
 
 clean:
 	rm -rf pgcdfga.egg-info/
@@ -49,7 +50,12 @@ push-version:
 push-latest:
 	docker push ${PROJECT}/${IMAGE}:latest || echo Could not push ${PROJECT}/${IMAGE}:${VERSION}
 
-test:
+test-flake8:
 	flake8 .
+
+test-pylint:
+	pylint *.py pgcdfga tests
+
+test-coverage:
 	coverage run --source pgcdfga setup.py test
 	coverage report -m

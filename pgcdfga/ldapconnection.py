@@ -23,16 +23,18 @@ Sebastiaan Mannem <smannem@bol.com>
 Jing Rao <jrao@bol.com>
 '''
 
+from ldap3 import ServerPool, Server, Connection, SUBTREE
+
 LDAP_DEFAULTS = {'servers': [], 'user': None, 'password': None, 'port': 636,
                  'ldapbasedn': 'OU=DC=example,DC=com', 'conn_retries': True}
 
-from ldap3 import ServerPool, Server, Connection, SUBTREE
 
 class LDAPConnectionException(Exception):
     '''
     This exception is raised on errors in the LDAPConnection class.
     '''
     pass
+
 
 class LDAPConnection():
     '''
@@ -47,7 +49,7 @@ class LDAPConnection():
 
         try:
             if not ldapconfig['enabled']:
-                #ldap is disabled. Disable further checking
+                # ldap is disabled. Disable further checking
                 return
         except KeyError:
             pass
@@ -93,11 +95,12 @@ class LDAPConnection():
 
         if not ldapbasedn:
             ldapbasedn = self.__config['basedn']
-        if not '(' in ldapfilter:
+        if '(' not in ldapfilter:
             try:
                 filter_template = self.__config['filter_template']
             except KeyError:
-                print('ldapfilter {} is without "(" and no filter_template is set'.format(ldapfilter))
+                print('ldapfilter {} is without "(" and no filter_template is set'.format(
+                    ldapfilter))
                 raise
             _ldapfilter = filter_template % ldapfilter
             print('Using {} for group {}'.format(_ldapfilter, ldapfilter))

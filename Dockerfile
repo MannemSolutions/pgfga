@@ -18,7 +18,7 @@
 # TO_BUILD/TAG:   make
 # TO_PUSH:        make push
 
-FROM python:3
+FROM python:stretch
 
 WORKDIR /usr/src/app
 
