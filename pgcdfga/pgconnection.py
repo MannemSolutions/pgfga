@@ -140,23 +140,19 @@ class PGConnection():
         # (in RAM) with proper permissions so that at least client auth works.
         # And cleaning it up when connection is made
         newkeyfile = None
-        try:
-            keyfile = os.path.realpath(os.path.expanduser(dsn_params['sslkey']))
-            keyfilemode = oct(os.stat(keyfile).st_mode)[-4:]
-            if keyfilemode != '0600':
-                logging.info('Fixing permissions on key file %s (%s)', keyfile, keyfilemode)
-                key = open(keyfile, 'rb').read()
-                keylength = len(key)
-                _nkf_handle, newkeyfile = tempfile.mkstemp()
-                open(newkeyfile, 'wb').write(key)
+        if 'sslkey' in dsn_params:
+            try:
+                dsn_params['sslkey'] = newkeyfile = set_correct_permissions(dsn_params['sslkey'])
+            except (OSError, FileNotFoundError) as error:
+                logging.debug('Could not set proper permissions for key file %s.\n'
+                              'Trying without sslkey in connectstring.',
+                              dsn_params['sslkey'])
+                logging.exception(str(error))
+
+            if newkeyfile:
                 dsn_params['sslkey'] = newkeyfile
-                logging.debug('New key file %s is created with correct permissions', newkeyfile)
-        except KeyError:
-            # configdata['postgresql']['dsn']['sslkey'] is not set
-            pass
-        except OSError as error:
-            logging.debug('Could not set proper permissions for key file %s', keyfile)
-            logging.exception(str(error))
+            else:
+                del dsn_params['sslkey']
 
         # Join {'host': '127.0.0.1', 'dbname': 'postgres'} into 'host=127.0.0.1 dbname=postgres'
         dsn = self.dsn(dsn_params)
@@ -164,11 +160,7 @@ class PGConnection():
         self.__conn[database] = conn = psycopg2.connect(dsn)
         conn.autocommit = True
         if newkeyfile:
-            logging.debug('Cleaning key file %s', newkeyfile)
-            for _run_index in range(5):
-                open(newkeyfile, 'wb').write(b'\x00' * keylength)
-                open(newkeyfile, 'wb').write(b'\xff' * keylength)
-            os.remove(newkeyfile)
+            clean_key_file(newkeyfile)
 
     def run_sql(self, query, parameters=None, database: str = 'postgres'):
         '''
@@ -188,7 +180,7 @@ class PGConnection():
             columns = [i[0] for i in cur.description]
         except TypeError:
             return None
-        ret = [dict(zip(columns, row)) for row in cur]
+        ret = [dict(zip(columns, row)) for row in cur.fetchall()]
         cur.close()
         return ret
 
@@ -356,8 +348,10 @@ class PGConnection():
         '''
         This method will grant a role to a user.
         '''
-        self.createrole(rolename)
-        self.createrole(username)
+        ret = False
+        for role_tobe_created in [rolename, username]:
+            if self.createrole(role_tobe_created):
+                ret = True
         try:
             self.__rolegrants[rolename].add(username)
         except KeyError:
@@ -372,17 +366,18 @@ class PGConnection():
             role = sql.Identifier(rolename)
             query = sql.SQL("GRANT {} TO {}").format(role, user)
             self.run_sql(query)
-        return True
+            ret = True
+        return ret
 
     def revokerole(self, username, rolename):
         '''
         This method will revoke a role from a user.
         '''
         check_query = 'SELECT rolname FROM pg_roles WHERE rolname = %s and rolname != CURRENT_USER'
-        if not self.run_sql(check_query, [username]):
-            return True
-        if not self.run_sql(check_query, [rolename]):
-            return True
+        userexists = self.run_sql(check_query, [username])
+        roleexists = self.run_sql(check_query, [rolename])
+        if not userexists or not roleexists:
+            return False
         user = sql.Identifier(username)
         role = sql.Identifier(rolename)
         query = sql.SQL("REVOKE {} FROM {}").format(role, user)
@@ -493,7 +488,6 @@ class PGConnection():
         '''
         This method will drop an extension from a database.
         '''
-        self.connect(database=dbname)
         if version:
             version_query = 'SELECT extname FROM pg_extension \
                              WHERE extname = %s and extversion != %s'
@@ -516,6 +510,42 @@ class PGConnection():
             if version:
                 create_query.append(sql.SQL('VERSION {}').format(sql.Identifier(str(version))))
             self.run_sql(sql.SQL(' ').join(create_query),
-                         parameters=[extensionname], database=dbname)
+                         database=dbname)
             return True
         return False
+
+
+def set_correct_permissions(filename):
+    '''
+    Libpq requires client cert private keys to have very specific permissions (0600).
+    This function will create a new file with correct permissions
+    from a readable file with wrong permissions.
+    '''
+    keyfile = os.path.realpath(os.path.expanduser(filename))
+    keyfilemode = oct(os.stat(keyfile).st_mode)[-4:]
+    if keyfilemode != '0600':
+        logging.info('Fixing permissions on key file %s (%s)', keyfile, keyfilemode)
+        with open(keyfile, 'rb') as keyfile_hnd:
+            key = keyfile_hnd.read()
+        _nkf_handle, newkeyfile = tempfile.mkstemp()
+        with open(newkeyfile, 'wb') as keyfile_hnd:
+            keyfile_hnd.write(key)
+        logging.debug('New key file %s is created with correct permissions', newkeyfile)
+        return newkeyfile
+    return None
+
+
+def clean_key_file(filename):
+    '''
+    This function will clean a copied keyfile that was craeted by set_correct_permissions.
+    It will first overwrite with other data (3 times) and then remove.
+    '''
+    keyfile = os.path.realpath(os.path.expanduser(filename))
+    logging.debug('Cleaning key file %s', keyfile)
+    with open(keyfile, 'rb') as keyfile_hnd:
+        keylength = len(keyfile_hnd.read())
+    for _run_index in range(5):
+        for obfuscate in [b'\x00' * keylength, b'\xff' * keylength]:
+            with open(keyfile, 'wb') as keyfile_hnd:
+                keyfile_hnd.write(obfuscate)
+    os.remove(keyfile)

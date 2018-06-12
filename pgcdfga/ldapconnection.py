@@ -23,7 +23,7 @@ Sebastiaan Mannem <smannem@bol.com>
 Jing Rao <jrao@bol.com>
 '''
 
-from ldap3 import ServerPool, Server, Connection, SUBTREE
+from ldap3 import ServerPool, Server, Connection, SUBTREE, MOCK_SYNC, OFFLINE_SLAPD_2_4
 
 LDAP_DEFAULTS = {'servers': [], 'user': None, 'password': None, 'port': 636,
                  'ldapbasedn': 'OU=DC=example,DC=com', 'conn_retries': True}
@@ -47,63 +47,95 @@ class LDAPConnection():
         self.__config = ldapconfig
         self.__connection = None
 
-        try:
-            if not ldapconfig['enabled']:
-                # ldap is disabled. Disable further checking
-                return
-        except KeyError:
-            pass
+        if not self.__get_param('enabled', True):
+            return
 
         try:
-            for key in ['servers', 'user', 'password', 'port']:
-                if not ldapconfig[key]:
-                    raise LDAPConnectionException('ldapconnection init requires a value for {}\
-                                                  '.format(key))
+            for key in ['servers', 'user', 'password']:
+                if not self.__get_param(key):
+                    msg = 'ldapconnection init requires a value for {}'
+                    raise LDAPConnectionException(msg.format(key))
         except Exception as error:
             raise LDAPConnectionException('ldapconnection should be a dict with the correct \
                                            key=value pairs.', error)
+
+    def __get_param(self, key, default=None):
+        '''
+        This method is used to retrieve a param, or set a default
+        '''
+        try:
+            return self.__config[key]
+        except KeyError:
+            return default
 
     def connect(self):
         '''
         This methods connect to a(n) ldap server(s).
         '''
-        try:
-            if not self.__config['enabled']:
-                print('ldap sync is disabled')
-                return None
-        except KeyError:
+        if not self.__get_param('enabled', True):
+            return None
+
+        mock_connection = self.mock_connect()
+        if mock_connection:
             pass
-        if not self.__connection:
-            ldapservers = [Server(ldap_server, port=self.__config['port'], use_ssl=True,
+        elif not self.__connection:
+            ldapservers = [Server(ldap_server,
+                                  port=self.__get_param('port', 636),
+                                  use_ssl=True,
                                   connect_timeout=1) for ldap_server in
-                           self.__config['servers']]
-            serverpool = ServerPool(ldapservers, active=self.__config['conn_retries'], exhaust=True)
-            self.__connection = Connection(serverpool, self.__config['user'],
-                                           self.__config['password'], auto_bind=True)
+                           self.__get_param('servers')]
+            con_retries = self.__get_param('conn_retries', 1)
+            serverpool = ServerPool(ldapservers,
+                                    active=con_retries,
+                                    exhaust=(con_retries > 0))
+            self.__connection = Connection(serverpool,
+                                           self.__get_param('user', ''),
+                                           self.__get_param('password', ''),
+                                           auto_bind=True)
         return self.__connection
+
+    def mock_connect(self):
+        '''
+        This method checks if mocking is needed and if so, creates a mocked
+        connection instead of a real connection to an ldap.
+        '''
+        if not self.__get_param('enabled', True):
+            return None
+
+        if self.__connection:
+            return self.__connection
+
+        mockdata = self.__get_param('mockdata', {})
+        if not mockdata:
+            return None
+
+        my_fake_server = Server('my_fake_server', get_info=OFFLINE_SLAPD_2_4)
+        connection = Connection(my_fake_server,
+                                user='cn=my_user,ou=test,o=lab',
+                                password='my_password',
+                                client_strategy=MOCK_SYNC)
+
+        for user, userconfig in mockdata.items():
+            connection.strategy.add_entry(user, userconfig)
+        connection.bind()
+        self.__connection = connection
+        return connection
 
     def ldap_grp_mmbrs(self, ldapbasedn=None, ldapfilter=None):
         '''
         This function is used to get a list of users in a ldap group
         '''
-        try:
-            if not self.__config['enabled']:
-                print('ldap sync is disabled')
-                return []
-        except KeyError:
-            pass
+        if not self.__get_param('enabled', True):
+            return []
 
         if not ldapbasedn:
-            ldapbasedn = self.__config['basedn']
+            ldapbasedn = self.__get_param('basedn', '')
         if '(' not in ldapfilter:
-            try:
-                filter_template = self.__config['filter_template']
-            except KeyError:
-                print('ldapfilter {} is without "(" and no filter_template is set'.format(
-                    ldapfilter))
-                raise
+            filter_template = self.__get_param('filter_template')
+            if not filter_template:
+                msg = 'ldapfilter {} is without "(" and no filter_template is set'
+                raise LDAPConnectionException(msg.format(ldapfilter))
             _ldapfilter = filter_template % ldapfilter
-            print('Using {} for group {}'.format(_ldapfilter, ldapfilter))
             ldapfilter = _ldapfilter
         result_set = set()
         conn = self.connect()

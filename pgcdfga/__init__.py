@@ -17,4 +17,4 @@ This module is used to manage postgres objects like users, databases, extensions
 It can be configured with a yaml hash and it can manage users from an ldap group too.
 '''
 
-__version__ = "0.9.7"
+__version__ = "0.9.8"
