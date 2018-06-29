@@ -23,7 +23,9 @@ Sebastiaan Mannem <smannem@bol.com>
 Jing Rao <jrao@bol.com>
 '''
 
+import logging
 from ldap3 import ServerPool, Server, Connection, SUBTREE, MOCK_SYNC, OFFLINE_SLAPD_2_4
+from ldap3.core.exceptions import LDAPException
 
 LDAP_DEFAULTS = {'servers': [], 'user': None, 'password': None, 'port': 636,
                  'ldapbasedn': 'OU=DC=example,DC=com', 'conn_retries': True}
@@ -50,14 +52,12 @@ class LDAPConnection():
         if not self.__get_param('enabled', True):
             return
 
-        try:
-            for key in ['servers', 'user', 'password']:
-                if not self.__get_param(key):
-                    msg = 'ldapconnection init requires a value for {}'
-                    raise LDAPConnectionException(msg.format(key))
-        except Exception as error:
-            raise LDAPConnectionException('ldapconnection should be a dict with the correct \
-                                           key=value pairs.', error)
+        for key in ['servers', 'user', 'password']:
+            if not self.__get_param(key):
+                logging.error("ldapconnection requires a value for '%s'.", key)
+                if self.__config['enabled']:
+                    logging.info("Disabling LDAP synchronisation due to missing configuration.")
+                    self.__config['enabled'] = False
 
     def __get_param(self, key, default=None):
         '''
@@ -88,10 +88,19 @@ class LDAPConnection():
             serverpool = ServerPool(ldapservers,
                                     active=con_retries,
                                     exhaust=(con_retries > 0))
-            self.__connection = Connection(serverpool,
-                                           self.__get_param('user', ''),
-                                           self.__get_param('password', ''),
-                                           auto_bind=True)
+            logging.debug("Attempting to connect to LDAP servers: %s", serverpool.servers)
+            try:
+                self.__connection = Connection(serverpool,
+                                               self.__get_param('user', ''),
+                                               self.__get_param('password', ''),
+                                               auto_bind=True)
+                logging.debug("Successfully connected to LDAP servers")
+            except LDAPException as error:
+                logging.error("Unable to connect to LDAP servers: %s", str(error))
+                # If we get here then self.__connection will be None,
+                # but let's return it explicitly in case there is some
+                # condition where that isn't the case.
+                return None
         return self.__connection
 
     def mock_connect(self):
@@ -118,6 +127,7 @@ class LDAPConnection():
         for user, userconfig in mockdata.items():
             connection.strategy.add_entry(user, userconfig)
         connection.bind()
+        logging.debug("Mocking the LDAP connection")
         self.__connection = connection
         return connection
 
@@ -139,14 +149,18 @@ class LDAPConnection():
             ldapfilter = _ldapfilter
         result_set = set()
         conn = self.connect()
-        groups = conn.extend.standard.paged_search(search_base=ldapbasedn,
-                                                   search_filter=ldapfilter,
-                                                   search_scope=SUBTREE,
-                                                   attributes=['memberUid'],
-                                                   paged_size=5,
-                                                   generator=True)
-        for group in groups:
-            members = [uid.decode() for uid in group['raw_attributes']['memberUid']]
-            result_set |= set(members)
-        result_set.discard('dummy')
+        if conn is None:
+            logging.info("No LDAP connection available to fetch groups members")
+        else:
+            groups = conn.extend.standard.paged_search(search_base=ldapbasedn,
+                                                       search_filter=ldapfilter,
+                                                       search_scope=SUBTREE,
+                                                       attributes=['memberUid'],
+                                                       paged_size=5,
+                                                       generator=True)
+            logging.debug("LDAP server returned the groups %s", groups)
+            for group in groups:
+                members = [uid.decode() for uid in group['raw_attributes']['memberUid']]
+                result_set |= set(members)
+            result_set.discard('dummy')
         return sorted(result_set)

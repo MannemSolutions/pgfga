@@ -90,7 +90,7 @@ def process_user(pgconn: PGConnection, username: str, userconfig: dict,
         # If expiry date has passed, remove account / group
         if datetime.datetime.now() > expiry:
             ensure = 'absent'
-            logging.debug("User %s is expired", username)
+            logging.info("User %s is expired", username)
 
     # Remove if ensure=absent
     if ensure == 'absent':
@@ -120,7 +120,7 @@ def process_user(pgconn: PGConnection, username: str, userconfig: dict,
         members = ldapconnection.ldap_grp_mmbrs(ldapbasedn=ldapbasedn,
                                                 ldapfilter=ldapfilter)
         for member in members:
-            logging.debug("creating member %s", member)
+            logging.info("Creating member %s from LDAP group %s", member, username)
             # For ldap group, we don't specify options on group, but rather on direct users.
             pgconn.createrole(member, ['LOGIN'] + userconfig['options'])
             pgconn.grantrole(member, username)
@@ -266,8 +266,9 @@ def config(args):
         configdata['ldap']['userfile'] = '~/.ldap/user'
 
     # Configure logging
+    logformat = '%(asctime)s %(levelname)s: %(message)s'
     if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, format=logformat)
     else:
         try:
             loglevel = configdata['general']['loglevel']
@@ -278,7 +279,7 @@ def config(args):
                 numeric_level = getattr(logging, loglevel.upper(), None)
                 if not isinstance(numeric_level, int):
                     raise ValueError('Invalid log level: %s' % loglevel)
-            logging.basicConfig(level=numeric_level)
+            logging.basicConfig(level=numeric_level, format=logformat)
         except (KeyError, AttributeError):
             pass
 
