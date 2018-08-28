@@ -197,6 +197,30 @@ def process_databases(pgconn: PGConnection, databases: dict):
     return errorcount
 
 
+def process_replication_slots(pgconn: PGConnection, replication_slots: list):
+    '''
+    This function is a subfunction of main, that is used to process all replication slot config.
+    '''
+    errorcount = 0
+    for replication_slot in replication_slots:
+        logging.debug("Processing replication slot %s", replication_slot)
+        try:
+            logging.debug("Creating role %s", replication_slot)
+            pgconn.create_replication_slot(replication_slot)
+        except Exception as error:
+            logging.exception(str(error))
+            errorcount += 1
+    for replication_slot in list(set(pgconn.replication_slots()) - set(replication_slots)):
+        try:
+            logging.debug("Cluster contains replication slot that isn't in the config %s",
+                          replication_slot)
+            pgconn.drop_replication_slot(replication_slot)
+        except Exception as error:
+            logging.exception(str(error))
+            errorcount += 1
+    return errorcount
+
+
 def process_roles(pgconn: PGConnection, roles: dict):
     '''
     This function is a subfunction of main, that is used to process all role config.
@@ -323,6 +347,9 @@ def proces_fga(configdata, pgconn, ldapconn):
         errorcount += process_databases(pgconn, configdata['databases'])
     else:
         logging.debug("No database config set in configdata")
+    if 'replication_slots' in configdata:
+        logging.debug("Processing replication slots %s", configdata['replication_slots'])
+        errorcount += process_replication_slots(pgconn, configdata['replication_slots'])
     if 'roles' in configdata:
         logging.debug("Processing roles %s", configdata['roles'])
         errorcount += process_roles(pgconn, configdata['roles'])

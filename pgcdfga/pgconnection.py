@@ -523,6 +523,65 @@ class PGConnection():
             return True
         return False
 
+    def create_replication_slot(self, slot_name):
+        '''
+        Create the named replication slot_name if it does not yet exist.
+        '''
+        if self.__replication_slot_exists(slot_name):
+            logging.debug("Replication slot '%s' found. No need to create it.", slot_name)
+        else:
+            logging.debug("Replication slot '%s' not found. Will create it.", slot_name)
+            query = sql.SQL("SELECT pg_create_physical_replication_slot({})") \
+                       .format(sql.Literal(slot_name))
+            if self.run_sql(query):
+                logging.info("Created replication slot '%s'", slot_name)
+                return True
+            else:
+                logging.error("Failed to create replication slot '%s'", slot_name)
+        return False
+
+    def drop_replication_slot(self, slot_name):
+        '''
+        Drop the named replication slot_name if it exists.
+        '''
+        if self.__replication_slot_exists(slot_name):
+            logging.debug("Replication slot '%s' found. Will drop it.", slot_name)
+            query = sql.SQL("SELECT pg_drop_replication_slot({})").format(sql.Literal(slot_name))
+            if self.run_sql(query):
+                logging.info("Dropped replication slot '%s'", slot_name)
+                return True
+            else:
+                logging.error("Failed to drop replication slot '%s'", slot_name)
+        else:
+            logging.debug("Replication slot '%s' not found. No need to drop drop it.", slot_name)
+        return False
+
+    def replication_slots(self):
+        '''
+        Returns a list of the names of existing replication slots.
+        '''
+        query = sql.SQL("SELECT slot_name FROM pg_replication_slots")
+        result = self.run_sql(query)
+        if result:
+            return [r['slot_name'] for r in result]
+
+        logging.debug("Cluster has no existing replication slots.")
+        return []
+
+    def __replication_slot_exists(self, slot_name):
+        '''
+        Check if the named replication slot_name exists.
+        '''
+        query = sql.SQL("SELECT EXISTS (SELECT 1 FROM pg_replication_slots WHERE slot_name = {})") \
+                   .format(sql.Literal(slot_name))
+        result = self.run_sql(query)
+        if result and ('exists' in result[0]):
+            return result[0]['exists']
+
+        logging.error("Unable to determine if replication slot '%s' exists. " +
+                      "Assuming that it doesn't.", slot_name)
+        return True
+
 
 def set_correct_permissions(filename):
     '''
