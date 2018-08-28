@@ -15,17 +15,16 @@
 # Read docker info from the actual Dockerfile
 IMAGE := $(shell awk '/IMAGE:/ {print $$3}' Dockerfile)
 VERSION := $(shell cat pgcdfga/__init__.py | grep "^__version__" | awk '{print $$3}' | tr -d '"')
-PROJECT := $(shell awk '/PROJECT:/ {print $$3}' Dockerfile)
+PROJECTS ?= dockerhub.com/bol.com
 
 all: clean test build tag push
 all-latest: clean test build tag-latest push-latest
 test: test-flake8 test-pylint test-coverage
 
 clean:
-	rm -rf pgcdfga.egg-info/
-	docker rmi ${IMAGE}:${VERSION} || echo Could not clean ${IMAGE}:${VERSION}
-	docker rmi ${PROJECT}/${IMAGE}:${VERSION} || echo Could not clean ${PROJECT}/${IMAGE}:${VERSION}
-	docker rmi ${PROJECT}/${IMAGE}:latest || echo Could not clean ${PROJECT}/${IMAGE}:latest
+	@docker rmi $(IMAGE):$(VERSION) || echo Could not clean $(IMAGE):$(VERSION)
+	@$(foreach project, $(PROJECTS), docker rmi $(project)/$(IMAGE):$(VERSION) || echo Could not clean $(project)/$(IMAGE):$(VERSION))
+	@$(foreach project, $(PROJECTS), docker rmi $(project)/$(IMAGE):latest || echo Could not clean $(project)/$(IMAGE):latest)
 
 run:
 	docker run --rm -t ${IMAGE}:${VERSION}
@@ -36,19 +35,18 @@ build: Dockerfile
 tag: tag-version tag-latest
 
 tag-version:
-	docker tag ${IMAGE}:${VERSION} ${PROJECT}/${IMAGE}:${VERSION}
+	$(foreach project, $(PROJECTS), docker tag $(IMAGE):$(VERSION) $(project)/$(IMAGE):$(VERSION))
 
 tag-latest:
-	docker tag ${IMAGE}:${VERSION} ${IMAGE}:latest
-	docker tag ${IMAGE}:${VERSION} ${PROJECT}/${IMAGE}:latest
+	$(foreach project, $(PROJECTS), docker tag $(IMAGE):$(VERSION) $(project)/$(IMAGE):latest)
 
 push: push-version push-latest
 
 push-version:
-	docker push ${PROJECT}/${IMAGE}:${VERSION} || echo Could not push ${PROJECT}/${IMAGE}:${VERSION}
+	@$(foreach project, $(PROJECTS), docker push $(project)/$(IMAGE):$(VERSION) || echo Could not push $(project)/$(IMAGE):$(VERSION))
 
 push-latest:
-	docker push ${PROJECT}/${IMAGE}:latest || echo Could not push ${PROJECT}/${IMAGE}:${VERSION}
+	@$(foreach project, $(PROJECTS), docker push $(project)/$(IMAGE):latest || echo Could not push $(project)/$(IMAGE):latest)
 
 test-flake8:
 	flake8 .

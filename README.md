@@ -59,11 +59,22 @@ make tag
 
 ### Make push
 
-Will push latest and versioned images to gcloud, using variables in Dockerfile to determine image name, version and project.
+Will push latest and versioned images to gcloud, using variables in Dockerfile to determine image name and version.
 
 ```
 make push
 ```
+
+By default it will try to push to dockerhub.com/bol.com/pgcdfga. To override that, set the environmentvariable to the other projectname.
+
+For example:
+```
+export PROJECTS=eu.gcr.io/my-cool-app-tst-proj eu.gcr.io/my-cool-app-pro-proj
+make push
+```
+will push to the following projects:
+* eu.gcr.io/my-cool-app-tst-proj/pgcdfga
+* eu.gcr.io/my-cool-app-pro-proj/pgcdfga
 
 ### Make run
 
@@ -93,7 +104,7 @@ make
 * configure testdata/config.yaml correctly (e.a. hostname, location of ldap user/pw files, etc.)
 * start the container
 ```
-docker run --rm -v $PWD:/pgcdfga_config dockerhub.com/bol.com/pgcdfga:0.8
+docker run --rm -v $PWD:/pgcdfga_config pgcdfga
 ```
 
 et voila
