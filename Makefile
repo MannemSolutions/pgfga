@@ -29,7 +29,12 @@ clean:
 run:
 	docker run --rm -t ${IMAGE}:${VERSION}
 
-build: Dockerfile
+build: build-docker-image build-binary
+
+build-binary:
+	docker run -ti --rm --name pgcdfga_builder -v $$PWD:/host centos:7 /host/build_binary.sh
+
+build-docker-image: Dockerfile
 	docker build -t ${IMAGE}:${VERSION} -f Dockerfile .
 
 build-test-container:
