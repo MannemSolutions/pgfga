@@ -73,9 +73,9 @@ class PGConnectionException(Exception):
     '''
     This exception is raised when invalid data is fed to a PGConnectionException
     '''
-    pass
 
 
+# pylint: disable=R0904
 class PGConnection():
     '''
     This class is used to connect to a postgres cluster and to run logical functionality
@@ -295,7 +295,7 @@ class PGConnection():
             ret = True
         if not isinstance(options, list):
             options = []
-        options = set([option.upper() for option in options])
+        options = {option.upper() for option in options}
         valid_role_options_set = set(VALID_ROLE_OPTIONS.keys())
         for option in options & valid_role_options_set:
             logging.debug('createrole %s %s', rolename, option)
@@ -408,7 +408,7 @@ class PGConnection():
                 all_managed_roles.add(granted)
                 all_managed_roles |= set(grantees)
                 actual_grantees = self.run_sql(grantees_query, [granted])
-                actual_grantees = set([r['grantee'] for r in actual_grantees])
+                actual_grantees = {r['grantee'] for r in actual_grantees}
                 overgranted = actual_grantees - grantees
                 for grantee in overgranted:
                     self.revokerole(grantee, granted)
@@ -536,8 +536,7 @@ class PGConnection():
             if self.run_sql(query):
                 logging.info("Created replication slot '%s'", slot_name)
                 return True
-            else:
-                logging.error("Failed to create replication slot '%s'", slot_name)
+            logging.error("Failed to create replication slot '%s'", slot_name)
         return False
 
     def drop_replication_slot(self, slot_name):
@@ -550,8 +549,7 @@ class PGConnection():
             if self.run_sql(query):
                 logging.info("Dropped replication slot '%s'", slot_name)
                 return True
-            else:
-                logging.error("Failed to drop replication slot '%s'", slot_name)
+            logging.error("Failed to drop replication slot '%s'", slot_name)
         else:
             logging.debug("Replication slot '%s' not found. No need to drop drop it.", slot_name)
         return False
@@ -578,7 +576,7 @@ class PGConnection():
         if result and ('exists' in result[0]):
             return result[0]['exists']
 
-        logging.error("Unable to determine if replication slot '%s' exists. " +
+        logging.error("Unable to determine if replication slot '%s' exists. "
                       "Assuming that it doesn't.", slot_name)
         return True
 

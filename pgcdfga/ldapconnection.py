@@ -14,14 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""
 Script that creates databases, users, extensions and roles from a
 yaml config file / ldap
 
 === Authors
 Sebastiaan Mannem <smannem@bol.com>
 Jing Rao <jrao@bol.com>
-'''
+"""
 
 import logging
 from ldap3 import ServerPool, Server, Connection, SUBTREE, MOCK_SYNC, OFFLINE_SLAPD_2_4
@@ -35,7 +35,6 @@ class LDAPConnectionException(Exception):
     '''
     This exception is raised on errors in the LDAPConnection class.
     '''
-    pass
 
 
 class LDAPConnection():
@@ -49,13 +48,13 @@ class LDAPConnection():
         self.__config = ldapconfig
         self.__connection = None
 
-        if not self.__get_param('enabled', True):
+        if not self.__config.get('enabled', True):
             return
 
         for key in ['servers', 'user', 'password']:
             if not self.__get_param(key):
                 logging.error("ldapconnection requires a value for '%s'.", key)
-                if self.__config['enabled']:
+                if self.__config.get('enabled', True):
                     logging.info("Disabling LDAP synchronisation due to missing configuration.")
                     self.__config['enabled'] = False
 
@@ -100,7 +99,7 @@ class LDAPConnection():
                 # If we get here then self.__connection will be None,
                 # but let's return it explicitly in case there is some
                 # condition where that isn't the case.
-                return None
+                raise
         return self.__connection
 
     def mock_connect(self):

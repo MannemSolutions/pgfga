@@ -123,10 +123,9 @@ class LDAPConnectionTest(unittest.TestCase):
         ldap_config['user'] = 'Nobody'
         ldap_config['password'] = 'Secret'
         ldap_config['port'] = 1
+        ldap_config['enabled'] = True
 
         for key in ['servers', 'user', 'password']:
             mia_ldap_config = copy(ldap_config)
             del mia_ldap_config[key]
-            with self.assertRaises(LDAPConnectionException,
-                                   msg='ldapconnection init requires a value for {0}'.format(key)):
-                LDAPConnection(mia_ldap_config)
+            self.assertIsNone(LDAPConnection(mia_ldap_config).connect())
