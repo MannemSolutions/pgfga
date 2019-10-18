@@ -27,7 +27,7 @@ from setuptools import setup
 
 INSTALL_REQUIREMENTS = [
     'pyyaml==3.13',
-    'psycopg2-binary==2.7.4',
+    'psycopg2-binary==2.8.3',
     'ldap3==2.4.1'
 ]
 

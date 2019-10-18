@@ -32,6 +32,9 @@ run:
 build: Dockerfile
 	docker build -t ${IMAGE}:${VERSION} -f Dockerfile .
 
+build-test-container:
+	docker build -t pgcdfga-test . -f Dockerfile-test
+
 tag: tag-version tag-latest
 
 tag-version:
@@ -49,11 +52,10 @@ push-latest:
 	@$(foreach project, $(PROJECTS), docker push $(project)/$(IMAGE):latest || echo Could not push $(project)/$(IMAGE):latest)
 
 test-flake8:
-	flake8 .
+	docker run -ti -v $$PWD:/host --rm --name pgcdfga_test pgcdfga-test:latest /bin/bash -c 'cd /host && flake8 .'
 
 test-pylint:
-	pylint *.py pgcdfga tests
+	docker run -ti -v $$PWD:/host --rm --name pgcdfga_test pgcdfga-test:latest /bin/bash -c 'cd /host && pylint *.py pgcdfga tests'
 
 test-coverage:
-	coverage run --source pgcdfga setup.py test
-	coverage report -m
+	docker run -ti -v $$PWD:/host --rm --name pgcdfga_test pgcdfga-test:latest /bin/bash -c 'cd /host && coverage run --source pgcdfga setup.py test ; coverage report -m'
