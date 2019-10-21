@@ -80,7 +80,7 @@ class LDAPConnection():
         elif not self.__connection:
             ldapservers = [Server(ldap_server,
                                   port=self.__get_param('port', 636),
-                                  use_ssl=True,
+                                  use_ssl=self.__get_param('use_ssl', True),
                                   connect_timeout=1) for ldap_server in
                            self.__get_param('servers')]
             con_retries = self.__get_param('conn_retries', 1)
@@ -157,9 +157,9 @@ class LDAPConnection():
                                                        attributes=['memberUid'],
                                                        paged_size=5,
                                                        generator=True)
-            logging.debug("LDAP server returned the groups %s", groups)
             for group in groups:
                 members = [uid.decode() for uid in group['raw_attributes']['memberUid']]
                 result_set |= set(members)
+            logging.debug("LDAP server returned the groups %s", sorted(result_set))
             result_set.discard('dummy')
         return sorted(result_set)
