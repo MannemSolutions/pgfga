@@ -26,4 +26,3 @@ Jing Rao <jrao@bol.com>
 from pgcdfga import pgcdfga
 
 pgcdfga.main()
-

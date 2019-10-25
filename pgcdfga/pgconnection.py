@@ -44,8 +44,11 @@ VALID_ROLE_OPTIONS = {'SUPERUSER': 'rolsuper',
                       'REPLICATION': 'rolreplication',
                       'NOREPLICATION': 'not rolreplication'}
 
-PROTECTED_ROLES = ['postgres', 'pg_monitor', 'pg_read_all_settings', 'pg_read_all_stats',
-                   'pg_stat_scan_tables', 'pg_signal_backend']
+PROTECTED_ROLES = ['aq_administrator_role', 'enterprisedb', 'postgres',
+                   'pg_monitor', 'pg_read_all_settings', 'pg_read_all_stats',
+                   'pg_stat_scan_tables', 'pg_signal_backend',
+                   'pg_read_server_files', 'pg_write_server_files',
+                   'pg_execute_server_program', 'pg_signal_backend']
 
 PROTECTED_DBS = ['postgres', 'template0', 'template1']
 
