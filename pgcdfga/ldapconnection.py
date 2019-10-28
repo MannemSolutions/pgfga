@@ -14,14 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""
 Script that creates databases, users, extensions and roles from a
 yaml config file / ldap
 
 === Authors
 Sebastiaan Mannem <smannem@bol.com>
 Jing Rao <jrao@bol.com>
-'''
+"""
 
 import logging
 from ldap3 import ServerPool, Server, Connection, SUBTREE, MOCK_SYNC, OFFLINE_SLAPD_2_4
@@ -35,7 +35,6 @@ class LDAPConnectionException(Exception):
     '''
     This exception is raised on errors in the LDAPConnection class.
     '''
-    pass
 
 
 class LDAPConnection():
@@ -49,13 +48,13 @@ class LDAPConnection():
         self.__config = ldapconfig
         self.__connection = None
 
-        if not self.__get_param('enabled', True):
+        if not self.__config.get('enabled', True):
             return
 
         for key in ['servers', 'user', 'password']:
             if not self.__get_param(key):
                 logging.error("ldapconnection requires a value for '%s'.", key)
-                if self.__config['enabled']:
+                if self.__config.get('enabled', True):
                     logging.info("Disabling LDAP synchronisation due to missing configuration.")
                     self.__config['enabled'] = False
 
@@ -81,7 +80,7 @@ class LDAPConnection():
         elif not self.__connection:
             ldapservers = [Server(ldap_server,
                                   port=self.__get_param('port', 636),
-                                  use_ssl=True,
+                                  use_ssl=self.__get_param('use_ssl', True),
                                   connect_timeout=1) for ldap_server in
                            self.__get_param('servers')]
             con_retries = self.__get_param('conn_retries', 1)
@@ -100,7 +99,7 @@ class LDAPConnection():
                 # If we get here then self.__connection will be None,
                 # but let's return it explicitly in case there is some
                 # condition where that isn't the case.
-                return None
+                raise
         return self.__connection
 
     def mock_connect(self):
@@ -158,9 +157,9 @@ class LDAPConnection():
                                                        attributes=['memberUid'],
                                                        paged_size=5,
                                                        generator=True)
-            logging.debug("LDAP server returned the groups %s", groups)
             for group in groups:
                 members = [uid.decode() for uid in group['raw_attributes']['memberUid']]
                 result_set |= set(members)
+            logging.debug("LDAP server returned the groups %s", sorted(result_set))
             result_set.discard('dummy')
         return sorted(result_set)

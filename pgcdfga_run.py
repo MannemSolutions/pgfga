@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright 2019 Bol.com
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,10 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module is used to manage postgres objects like users, databases, extensions and roles.
+'''
+Script that creates databases, users, extensions and roles from a
+yaml config file / ldap
 
-It can be configured with a yaml hash and it can manage users from an ldap group too.
-"""
+=== Authors
+Sebastiaan Mannem <smannem@bol.com>
+Jing Rao <jrao@bol.com>
+'''
 
-__version__ = "1.1"
+from pgcdfga import pgcdfga
+
+pgcdfga.main()

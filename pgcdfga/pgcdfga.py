@@ -318,7 +318,7 @@ def config_ldap(configdata):
     '''
     try:
         ldapconfig = dict_with_defaults(configdata['ldap'], LDAP_DEFAULTS)
-    except (KeyError, TypeError) as __error:
+    except (KeyError, TypeError):
         ldapconfig = LDAP_DEFAULTS
 
     if ldapconfig['enabled']:

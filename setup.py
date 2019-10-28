@@ -1,7 +1,5 @@
 #! /usr/bin/env python
 
-"""Enforce Fine Grained Access on a Postgres deployment."""
-
 # Copyright 2019 Bol.com
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,26 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""Enforce Fine Grained Access on a Postgres deployment.
+
 This module installs pgcdfga as a binary.
-'''
+"""
 
 import codecs
 import os
 import re
-from setuptools import setup, find_packages
+from setuptools import find_packages
+from setuptools import setup
 
 INSTALL_REQUIREMENTS = [
     'pyyaml==3.13',
-    'psycopg2-binary==2.7.4',
+    'psycopg2-binary==2.8.3',
     'ldap3==2.4.1'
 ]
 
 
 def find_version():
-    '''
-    This function reads the pgcdfga version from pgcdfga/__init__.py
-    '''
+    """Read the pgcdfga version from pgcdfga/__init__.py."""
     here = os.path.abspath(os.path.dirname(__file__))
     with codecs.open(os.path.join(here, 'pgcdfga', '__init__.py'), 'r') as file_pointer:
         version_file = file_pointer.read()
