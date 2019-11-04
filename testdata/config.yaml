@@ -53,6 +53,7 @@ users:
     auth: ldap-group
     ldapbasedn: 'OU=pro,DC=example,DC=com'
     ldapfilter: '(&(cn=team1)(!(cn=*-gon))(!(cn=*-goun)))'
+    ldapattribute: 'member'
     memberof:
     - opex
   smannem:

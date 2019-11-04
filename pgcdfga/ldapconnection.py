@@ -28,7 +28,8 @@ from ldap3 import ServerPool, Server, Connection, SUBTREE, MOCK_SYNC, OFFLINE_SL
 from ldap3.core.exceptions import LDAPException
 
 LDAP_DEFAULTS = {'servers': [], 'user': None, 'password': None, 'port': 636,
-                 'ldapbasedn': 'OU=DC=example,DC=com', 'conn_retries': True}
+                 'ldapbasedn': 'OU=DC=example,DC=com', 'conn_retries': True,
+                 'ldapattribute': 'memberUid'}
 
 
 class LDAPConnectionException(Exception):
@@ -130,7 +131,8 @@ class LDAPConnection():
         self.__connection = connection
         return connection
 
-    def ldap_grp_mmbrs(self, ldapbasedn=None, ldapfilter=None):
+    def ldap_grp_mmbrs(self, ldapbasedn=None, ldapfilter=None,
+                       ldapattribute=None):
         '''
         This function is used to get a list of users in a ldap group
         '''
@@ -139,6 +141,8 @@ class LDAPConnection():
 
         if not ldapbasedn:
             ldapbasedn = self.__get_param('basedn', '')
+        if not ldapattribute:
+            ldapattribute = self.__get_param('ldapattribute', 'memberUid')
         if '(' not in ldapfilter:
             filter_template = self.__get_param('filter_template')
             if not filter_template:
@@ -154,12 +158,25 @@ class LDAPConnection():
             groups = conn.extend.standard.paged_search(search_base=ldapbasedn,
                                                        search_filter=ldapfilter,
                                                        search_scope=SUBTREE,
-                                                       attributes=['memberUid'],
+                                                       attributes=[ldapattribute],
                                                        paged_size=5,
                                                        generator=True)
-            for group in groups:
-                members = [uid.decode() for uid in group['raw_attributes']['memberUid']]
-                result_set |= set(members)
-            logging.debug("LDAP server returned the groups %s", sorted(result_set))
+            members = {member.decode() for group in groups for member in
+                       group['raw_attributes'][ldapattribute]}
+            for member in members:
+                if '=' not in member:
+                    result_set.add(member)
+                    continue
+                conn.search(
+                    search_base=member,
+                    search_filter='(objectClass=user)',
+                    attributes=['sAMAccountName']
+                )
+                try:
+                    result_set.add(conn.entries[0].sAMAccountName.values[0])
+                except IndexError:
+                    logging.info('Could not find %s in ldap, using directly instead', member)
+                    result_set.add(member)
+                    continue
             result_set.discard('dummy')
         return sorted(result_set)

@@ -411,7 +411,7 @@ def main():
             print('rundelay not set')
             break
         if delay > 0:
-            logging.debug("Waiting for %s", str(delay))
+            logging.info("Waiting for %s seconds", str(delay))
             time.sleep(delay)
         else:
             break
