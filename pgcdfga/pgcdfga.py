@@ -113,12 +113,12 @@ def process_user(pgconn: PGConnection, username: str, userconfig: dict,
         # create ldap group with ldap users
         # For ldap group, we don't specify options on group, but rather on direct users.
         pgconn.createrole(username)
-        try:
-            ldapfilter = userconfig['ldapfilter']
-        except KeyError:
-            ldapfilter = username
+        ldapfilter = userconfig.get('ldapfilter', username)
+        prefix = userconfig.get('prefix', ldapconnection.get_param('prefix', ''))
+        suffix = userconfig.get('suffix', ldapconnection.get_param('suffix', ''))
+        template = prefix+'{0}'+suffix
         members = ldapconnection.ldap_grp_mmbrs(ldapbasedn=ldapbasedn,
-                                                ldapfilter=ldapfilter)
+                                                ldapfilter=ldapfilter, template=template)
         for member in members:
             logging.info("Creating member %s from LDAP group %s", member, username)
             # For ldap group, we don't specify options on group, but rather on direct users.

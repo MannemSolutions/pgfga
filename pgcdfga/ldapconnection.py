@@ -53,26 +53,23 @@ class LDAPConnection():
             return
 
         for key in ['servers', 'user', 'password']:
-            if not self.__get_param(key):
+            if not self.get_param(key):
                 logging.error("ldapconnection requires a value for '%s'.", key)
                 if self.__config.get('enabled', True):
                     logging.info("Disabling LDAP synchronisation due to missing configuration.")
                     self.__config['enabled'] = False
 
-    def __get_param(self, key, default=None):
+    def get_param(self, key, default=None):
         '''
         This method is used to retrieve a param, or set a default
         '''
-        try:
-            return self.__config[key]
-        except KeyError:
-            return default
+        return self.__config.get(key, default)
 
     def connect(self):
         '''
         This methods connect to a(n) ldap server(s).
         '''
-        if not self.__get_param('enabled', True):
+        if not self.get_param('enabled', True):
             return None
 
         mock_connection = self.mock_connect()
@@ -80,19 +77,19 @@ class LDAPConnection():
             pass
         elif not self.__connection:
             ldapservers = [Server(ldap_server,
-                                  port=self.__get_param('port', 636),
-                                  use_ssl=self.__get_param('use_ssl', True),
+                                  port=self.get_param('port', 636),
+                                  use_ssl=self.get_param('use_ssl', True),
                                   connect_timeout=1) for ldap_server in
-                           self.__get_param('servers')]
-            con_retries = self.__get_param('conn_retries', 1)
+                           self.get_param('servers')]
+            con_retries = self.get_param('conn_retries', 1)
             serverpool = ServerPool(ldapservers,
                                     active=con_retries,
                                     exhaust=(con_retries > 0))
             logging.debug("Attempting to connect to LDAP servers: %s", serverpool.servers)
             try:
                 self.__connection = Connection(serverpool,
-                                               self.__get_param('user', ''),
-                                               self.__get_param('password', ''),
+                                               self.get_param('user', ''),
+                                               self.get_param('password', ''),
                                                auto_bind=True)
                 logging.debug("Successfully connected to LDAP servers")
             except LDAPException as error:
@@ -108,13 +105,13 @@ class LDAPConnection():
         This method checks if mocking is needed and if so, creates a mocked
         connection instead of a real connection to an ldap.
         '''
-        if not self.__get_param('enabled', True):
+        if not self.get_param('enabled', True):
             return None
 
         if self.__connection:
             return self.__connection
 
-        mockdata = self.__get_param('mockdata', {})
+        mockdata = self.get_param('mockdata', {})
         if not mockdata:
             return None
 
@@ -132,19 +129,21 @@ class LDAPConnection():
         return connection
 
     def ldap_grp_mmbrs(self, ldapbasedn=None, ldapfilter=None,
-                       ldapattribute=None):
+                       ldapattribute=None, template=None):
         '''
         This function is used to get a list of users in a ldap group
         '''
-        if not self.__get_param('enabled', True):
+        if not self.get_param('enabled', True):
             return []
 
         if not ldapbasedn:
-            ldapbasedn = self.__get_param('basedn', '')
+            ldapbasedn = self.get_param('basedn', '')
+        if not template:
+            template = self.get_param('template', '{0}')
         if not ldapattribute:
-            ldapattribute = self.__get_param('ldapattribute', 'memberUid')
+            ldapattribute = self.get_param('ldapattribute', 'memberUid')
         if '(' not in ldapfilter:
-            filter_template = self.__get_param('filter_template')
+            filter_template = self.get_param('filter_template')
             if not filter_template:
                 msg = 'ldapfilter {} is without "(" and no filter_template is set'
                 raise LDAPConnectionException(msg.format(ldapfilter))
@@ -161,22 +160,29 @@ class LDAPConnection():
                                                        attributes=[ldapattribute],
                                                        paged_size=5,
                                                        generator=True)
+            # Lets retrieve all members from the attribute named after ldapattribute
             members = {member.decode() for group in groups for member in
                        group['raw_attributes'][ldapattribute]}
             for member in members:
                 if '=' not in member:
-                    result_set.add(member)
+                    # There is no '=' into the member name. That means it probably is
+                    # a direct member uid. Lets use it directly.
+                    result_set.add(template.format(member))
                     continue
+                # There is a '=' in the member name. Probably this is an ldap path.
+                # Lets try to retrieve the user from ldap and use sAMAccountName from the user.
                 conn.search(
                     search_base=member,
                     search_filter='(objectClass=user)',
                     attributes=['sAMAccountName']
                 )
                 try:
-                    result_set.add(conn.entries[0].sAMAccountName.values[0])
+                    result_set.add(template.format(conn.entries[0].sAMAccountName.values[0]))
                 except IndexError:
+                    # Hmmm, seems we cannot retrieve this ldap user from the assumed ldap path.
+                    # Lets then fallback into using it directly anyhow...
                     logging.info('Could not find %s in ldap, using directly instead', member)
-                    result_set.add(member)
+                    result_set.add(template.format(member))
                     continue
             result_set.discard('dummy')
         return sorted(result_set)

@@ -1,0 +1,46 @@
+from ldap3 import Server, Connection, ALL, SUBTREE
+ldapserver='172.31.16.6'
+ldapbasedn='CN=dba,OU=Groups,OU=pgcdfga,DC=pgcdfga,DC=edb,DC=com'
+ldapfilter='(objectClass=group)'
+ldapuser='CN=pgcdfga pgcdfga,OU=Users,OU=pgcdfga,DC=pgcdfga,DC=edb,DC=com'
+ldappassword='p9cdfg@1234567'
+
+s = Server(ldapserver, port=389, get_info=ALL)  # define an unsecure LDAP server, requesting info on DSE and schema
+#conn = Connection(s)
+conn = Connection(s, user=ldapuser, password=ldappassword)
+# perform the Bind operation
+if not conn.bind():
+    print('error in bind', conn.result)
+
+
+groups = conn.extend.standard.paged_search(search_base=ldapbasedn,
+                                           search_filter=ldapfilter,
+                                           search_scope=SUBTREE,
+                                           attributes=['memberUid', 'member'],
+                                           paged_size=5,
+                                           generator=True)
+resultset = set()
+members = {member for group in groups for member in group['raw_attributes']['member']}
+print(members)
+for member in members:
+    if '=' not in member:
+        resultset.add(member)
+        continue
+    conn.search(
+        search_base=member,
+        search_filter='(objectClass=user)',
+        attributes=['sAMAccountName']
+    )
+    try:
+        resultset.add(conn.entries[0].sAMAccountName.values[0])
+    except IndexError:
+        print('Error getting ldap details on', member, 'adding directly instead')
+        resultset.add(member)
+        continue
+print(resultset)
+'''
+for group in groups:
+    print(group)
+    members = [uid.decode() for uid in group['raw_attributes']['memberUid']]
+    result_set |= set(members)
+'''
