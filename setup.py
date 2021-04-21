@@ -26,7 +26,7 @@ from setuptools import find_packages
 from setuptools import setup
 
 INSTALL_REQUIREMENTS = [
-    'pyyaml==3.13',
+    'pyyaml==5.4',
     'psycopg2-binary==2.8.3',
     'ldap3==2.4.1'
 ]
