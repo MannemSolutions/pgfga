@@ -1,0 +1,4 @@
+dn: cn=dba,ou=groups,dc=pgfga,dc=org
+changetype: modify
+add: memberUid
+memberuid: adam
