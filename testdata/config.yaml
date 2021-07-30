@@ -25,7 +25,7 @@ ldap:
   basedn: 'OU=pro,DC=example,DC=com'
   passwordfile: /pgcdfga_config/ldappassword
   servers:
-    - ldap1.example.com
+    - ldap://ldap1.example.com:389
   userfile: /pgcdfga_config/ldapuser
   conn_retries: 1
 

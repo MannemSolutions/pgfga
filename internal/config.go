@@ -1,8 +1,11 @@
 package internal
 
 import (
+	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -25,19 +28,110 @@ type FgaGeneralConfig struct {
 }
 
 type FgaStrictConfig struct {
-	Users     string `yaml:"users"`
-	Databases int    `yaml:"databases"`
+	Users     bool `yaml:"users"`
+	Databases bool `yaml:"databases"`
 }
 
 type FgaLdapConfig struct {
 	BaseDN       string   `yaml:"basedn"`
-	PasswordFile string   `yaml:"passwordfile"`
-	UserFile     string   `yaml:"userfile"`
+	user         string   `yaml:"user"`
+	userFile     string   `yaml:"userfile"`
+	password     string   `yaml:"password"`
+	passwordFile string   `yaml:"passwordfile"`
+	base64       bool     `yaml:"base64"`
 	Servers      []string `yaml:"servers"`
+	MaxRetries   int      `yaml:"conn_retries"`
+}
+
+func isExecutable(filename string) (isExecutable bool, err error) {
+	fi, err := os.Lstat("some-filename")
+	if err != nil {
+		return false, err
+	}
+	mode := fi.Mode()
+	return mode&0111 == 0111, nil
+}
+
+func fromExecutable(filename string) (value string, err error) {
+	out, err := exec.Command(filename).Output()
+	if err != nil {
+		return "", nil
+	}
+	return string(out), nil
+}
+
+func fromFile(filename string) (value string, err error) {
+	isExec, err := isExecutable(filename)
+	if isExec {
+		return fromExecutable(filename)
+	}
+	file, err := os.Open(filename) // For read access.
+	if err != nil {
+		return "", err
+	}
+	data := make([]byte, 100)
+	count, err := file.Read(data)
+	if err != nil {
+		return "", err
+	}
+	if count == 0 {
+		return "", fmt.Errorf("file %s is empty", filename)
+	}
+	return string(data[:]), nil
+}
+
+func (flc FgaLdapConfig) User() (user string, err error) {
+	if flc.user != "" {
+		user = flc.user
+	} else if flc.userFile != "" {
+		user, err = fromFile(flc.userFile)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		return "", fmt.Errorf("missing ldap user name (either user or userfile must be set)")
+	}
+	if flc.base64 {
+		data, err := base64.StdEncoding.DecodeString(user)
+		if err != nil {
+			return "", err
+		}
+		user = string(data)
+	}
+	return user, nil
+}
+
+func (flc FgaLdapConfig) Password() (password string, err error) {
+	if flc.password != "" {
+		password = flc.password
+	} else if flc.passwordFile != "" {
+		password, err = fromFile(flc.passwordFile)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		return "", fmt.Errorf("missing ldap password (either password or passwordfile must be set)")
+	}
+	if flc.base64 {
+		data, err := base64.StdEncoding.DecodeString(password)
+		if err != nil {
+			return "", err
+		}
+		password = string(data)
+	}
+	return password, nil
 }
 
 type FgaPostgresConfig struct {
-    Dsn map[string]string `yaml:"dsn"`
+    dsn map[string]string `yaml:"dsn"`
+}
+
+func (fpc FgaPostgresConfig) DSN() (dsn string) {
+	var pairs []string
+	for key, value := range fpc.dsn {
+		pairs = append(pairs, fmt.Sprintf("%s=%s", key, value))
+	}
+	return strings.Join(pairs[:], " ")
 }
 
 type FgaExtensionConfig struct {
