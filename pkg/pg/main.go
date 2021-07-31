@@ -4,20 +4,26 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v4"
+	"go.uber.org/zap"
 )
 
-type PgHandler struct {
+var log *zap.SugaredLogger
+func Initialize(logger *zap.SugaredLogger) {
+	log = logger
+}
+
+type Handler struct {
 	connString string
 	conn *pgx.Conn
 }
 
-func NewPgHandler(connString string) (ph *PgHandler) {
-	return &PgHandler{
+func NewPgHandler(connString string) (ph *Handler) {
+	return &Handler{
 		connString: connString,
 	}
 }
 
-func (ph *PgHandler) Connect() (err error) {
+func (ph *Handler) Connect() (err error) {
 	if ph.conn != nil {
 		if ph.conn.IsClosed() {
 			ph.conn = nil
@@ -33,7 +39,7 @@ func (ph *PgHandler) Connect() (err error) {
 	return nil
 }
 
-func (ph *PgHandler) runQueryGetOneField(query string) (answer string, err error) {
+func (ph *Handler) runQueryGetOneField(query string) (answer string, err error) {
 	err = ph.Connect()
 	if err != nil {
 		return "", err
@@ -46,7 +52,7 @@ func (ph *PgHandler) runQueryGetOneField(query string) (answer string, err error
 	return answer, nil
 }
 
-func (ph *PgHandler) GrantRole(user string, role string) (err error) {
-	fmt.Sprintf("GRANT %s to %s", role, user)
+func (ph *Handler) GrantRole(user string, role string) (err error) {
+	log.Infof("GRANT %s to %s", role, user)
 	return nil
 }

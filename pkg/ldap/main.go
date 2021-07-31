@@ -3,9 +3,15 @@ package ldap
 import (
 	"fmt"
 	"github.com/go-ldap/ldap/v3"
+	"go.uber.org/zap"
 )
 
-type LdapHandler struct {
+var log *zap.SugaredLogger
+func Initialize(sugar *zap.SugaredLogger) {
+	log = sugar
+}
+
+type Handler struct {
 	servers    []string
 	userName   string
 	password   string
@@ -13,11 +19,11 @@ type LdapHandler struct {
 	maxRetries int
 }
 
-func NewLdapHandler(servers []string, user string, password string, maxRetries int) (lh *LdapHandler) {
+func NewLdapHandler(servers []string, user string, password string, maxRetries int) (lh *Handler) {
 	if maxRetries < 1 {
 		maxRetries = 1
 	}
-	return &LdapHandler{
+	return &Handler{
 		servers: servers,
 		userName: user,
 		password: password,
@@ -25,7 +31,7 @@ func NewLdapHandler(servers []string, user string, password string, maxRetries i
 	}
 }
 
-func (lh LdapHandler) Connect() (err error){
+func (lh Handler) Connect() (err error){
 	if lh.conn != nil {
 		return nil
 	}
@@ -46,12 +52,12 @@ func (lh LdapHandler) Connect() (err error){
 	return fmt.Errorf("none of the ldap servers are available")
 }
 
-type LdapMembership struct {
+type Membership struct {
 	Member   string
 	MemberOf string
 }
 
-func (lh LdapHandler) GetMemberships(baseDN string, filter string) (ms []LdapMembership, err error) {
+func (lh Handler) GetMemberships(baseDN string, filter string) (ms []Membership, err error) {
 	err = lh.Connect()
 	if err != nil {
 		return ms, err
@@ -64,8 +70,8 @@ func (lh LdapHandler) GetMemberships(baseDN string, filter string) (ms []LdapMem
 	}
 
 	for _, entry := range sr.Entries {
-		ms = append(ms, LdapMembership{Member: entry.DN, MemberOf: entry.GetAttributeValue("cn")})
-		fmt.Printf("%s: %v\n", entry.DN, entry.GetAttributeValue("cn"))
+		ms = append(ms, Membership{Member: entry.DN, MemberOf: entry.GetAttributeValue("cn")})
+		log.Debugf("%s: %v\n", entry.DN, entry.GetAttributeValue("cn"))
 	}
 	return ms, nil
 }

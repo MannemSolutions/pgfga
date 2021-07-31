@@ -7,6 +7,8 @@ import (
 )
 
 func main() {
+	internal.Initialize()
+
 	fga, err := internal.NewPgFgaHandler()
 	if err != nil {
 		log.Fatalf("Error occurred on getting config: %e", err)

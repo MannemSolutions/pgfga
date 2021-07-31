@@ -24,9 +24,11 @@ strict:
 ldap:
   basedn: 'OU=pro,DC=example,DC=com'
   passwordfile: /pgcdfga_config/ldappassword
+  password: pGfGa
   servers:
-    - ldap://ldap1.example.com:389
+    - ldap://localhost:389
   userfile: /pgcdfga_config/ldapuser
+  user: cn=admin,dc=pgfga,dc=org
   conn_retries: 1
 
 postgresql:

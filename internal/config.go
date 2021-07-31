@@ -3,6 +3,7 @@ package internal
 import (
 	"encoding/base64"
 	"fmt"
+	"go.uber.org/zap/zapcore"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -23,8 +24,8 @@ const (
 )
 
 type FgaGeneralConfig struct {
-	LogLevel  string `yaml:"loglevel"`
-	RunDelay int     `yaml:"run_delay"`
+	LogLevel zapcore.Level `yaml:"loglevel"`
+	RunDelay int           `yaml:"run_delay"`
 }
 
 type FgaStrictConfig struct {
@@ -34,17 +35,17 @@ type FgaStrictConfig struct {
 
 type FgaLdapConfig struct {
 	BaseDN       string   `yaml:"basedn"`
-	user         string   `yaml:"user"`
-	userFile     string   `yaml:"userfile"`
-	password     string   `yaml:"password"`
-	passwordFile string   `yaml:"passwordfile"`
-	base64       bool     `yaml:"base64"`
+	UserName     string   `yaml:"user"`
+	UserFile     string   `yaml:"userfile"`
+	Pwd          string   `yaml:"password"`
+	PwdFile      string   `yaml:"passwordfile"`
+	Base64       bool     `yaml:"base64"`
 	Servers      []string `yaml:"servers"`
 	MaxRetries   int      `yaml:"conn_retries"`
 }
 
 func isExecutable(filename string) (isExecutable bool, err error) {
-	fi, err := os.Lstat("some-filename")
+	fi, err := os.Lstat(filename)
 	if err != nil {
 		return false, err
 	}
@@ -81,17 +82,17 @@ func fromFile(filename string) (value string, err error) {
 }
 
 func (flc FgaLdapConfig) User() (user string, err error) {
-	if flc.user != "" {
-		user = flc.user
-	} else if flc.userFile != "" {
-		user, err = fromFile(flc.userFile)
+	if flc.UserName != "" {
+		user = flc.UserName
+	} else if flc.UserFile != "" {
+		user, err = fromFile(flc.UserFile)
 		if err != nil {
 			return "", err
 		}
 	} else {
 		return "", fmt.Errorf("missing ldap user name (either user or userfile must be set)")
 	}
-	if flc.base64 {
+	if flc.Base64 {
 		data, err := base64.StdEncoding.DecodeString(user)
 		if err != nil {
 			return "", err
@@ -102,17 +103,17 @@ func (flc FgaLdapConfig) User() (user string, err error) {
 }
 
 func (flc FgaLdapConfig) Password() (password string, err error) {
-	if flc.password != "" {
-		password = flc.password
-	} else if flc.passwordFile != "" {
-		password, err = fromFile(flc.passwordFile)
+	if flc.Pwd != "" {
+		password = flc.Pwd
+	} else if flc.PwdFile != "" {
+		password, err = fromFile(flc.PwdFile)
 		if err != nil {
 			return "", err
 		}
 	} else {
 		return "", fmt.Errorf("missing ldap password (either password or passwordfile must be set)")
 	}
-	if flc.base64 {
+	if flc.Base64 {
 		data, err := base64.StdEncoding.DecodeString(password)
 		if err != nil {
 			return "", err
