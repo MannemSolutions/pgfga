@@ -34,7 +34,6 @@ type FgaStrictConfig struct {
 }
 
 type FgaLdapConfig struct {
-	BaseDN       string   `yaml:"basedn"`
 	UserName     string   `yaml:"user"`
 	UserFile     string   `yaml:"userfile"`
 	Pwd          string   `yaml:"password"`

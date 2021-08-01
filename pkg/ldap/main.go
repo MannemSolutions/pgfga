@@ -31,7 +31,7 @@ func NewLdapHandler(servers []string, user string, password string, maxRetries i
 	}
 }
 
-func (lh Handler) Connect() (err error){
+func (lh *Handler) Connect() (err error){
 	if lh.conn != nil {
 		return nil
 	}
@@ -60,18 +60,21 @@ type Membership struct {
 func (lh Handler) GetMemberships(baseDN string, filter string) (ms []Membership, err error) {
 	err = lh.Connect()
 	if err != nil {
-		return ms, err
+		return nil, err
 	}
 	searchRequest := ldap.NewSearchRequest(baseDN, ldap.ScopeWholeSubtree, ldap.DerefAlways, 0, 0, false,
-		filter, []string{"dn", "cn"}, nil)
+		filter, []string{"dn", "cn", "memberUid"}, nil)
 	sr, err := lh.conn.Search(searchRequest)
 	if err != nil {
-		return ms, err
+		return nil, err
 	}
 
 	for _, entry := range sr.Entries {
-		ms = append(ms, Membership{Member: entry.DN, MemberOf: entry.GetAttributeValue("cn")})
-		log.Debugf("%s: %v\n", entry.DN, entry.GetAttributeValue("cn"))
+		for _, member:= range entry.GetAttributeValues("memberUid") {
+			memberOf := entry.GetAttributeValue("cn")
+			ms = append(ms, Membership{Member: member, MemberOf: memberOf})
+			log.Debugf("%s: %v", member, memberOf)
+		}
 	}
 	return ms, nil
 }

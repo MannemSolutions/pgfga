@@ -22,7 +22,6 @@ strict:
   databases: True
 
 ldap:
-  basedn: 'OU=pro,DC=example,DC=com'
   passwordfile: /pgcdfga_config/ldappassword
   password: pGfGa
   servers:
@@ -53,8 +52,8 @@ databases:
 users:
   dbateam:
     auth: ldap-group
-    ldapbasedn: 'OU=pro,DC=example,DC=com'
-    ldapfilter: '(&(cn=team1)(!(cn=*-gon))(!(cn=*-goun)))'
+    ldapbasedn: 'cn=dba,ou=groups,dc=pgfga,dc=org'
+    ldapfilter: '(objectclass=*)'
     memberof:
     - opex
   smannem:
