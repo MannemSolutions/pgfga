@@ -77,12 +77,12 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 			if userConfig.BaseDN == "" || userConfig.Filter == "" {
 				return fmt.Errorf("ldapbasedn and ldapfilter must be set for %s (auth: 'ldap-group')", userName)
 			}
-			mss, err := pfh.ldap.GetMemberships(userConfig.BaseDN, userConfig.Filter)
+			baseGroup, err := pfh.ldap.GetMembers(userConfig.BaseDN, userConfig.Filter)
 			if err != nil {
 				return err
 			}
-			for _, ms := range mss {
-				err = pfh.pg.GrantRole(ms.Member, ms.MemberOf)
+			for _, ms := range baseGroup.MembershipTree() {
+				err = pfh.pg.GrantRole(ms.Member.Name(), ms.MemberOf.Name())
 				if err != nil {
 					return err
 				}
