@@ -2,6 +2,7 @@ package pg
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"os"
@@ -54,7 +55,7 @@ func (ph *Handler) UserName() (userName string) {
 func (ph *Handler) DSN() (dsn string) {
 	var pairs []string
 	for key, value := range ph.connParams {
-		pairs = append(pairs, fmt.Sprintf("%s=%s", key, value))
+		pairs = append(pairs, fmt.Sprintf("%s=%s", key, connectStringValue(value)))
 	}
 	return strings.Join(pairs[:], " ")
 }
@@ -324,5 +325,43 @@ func (ph *Handler) GrantRole(userName string, roleName string) (err error) {
 		}
 	}
 	log.Infof("Granted role '%s' to user '%s'", roleName, userName)
+	return nil
+}
+
+func (ph *Handler) SetPassword(userName string, password string) (err error) {
+	var hashedPassword string
+	if len(password) == 35 && strings.HasPrefix(password, "md5") {
+		hashedPassword = password
+	} else {
+		hashedPassword = fmt.Sprintf("md5%x", md5.Sum([]byte(password+userName)))
+	}
+	checkQry := `SELECT usename FROM pg_shadow WHERE usename = %s
+	AND COALESCE(passwd, '') != %s`
+	exists, err := ph.runQueryExists(checkQry, userName, hashedPassword)
+	if err != nil {
+		return err
+	}
+	if ! exists {
+		err = ph.runQueryExec(fmt.Sprintf("ALTER USER %s WITH ENCRYPTED PASSWORD %s", identifier(userName),
+			quotedSqlValue(hashedPassword)))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (ph *Handler) ResetPassword(userName string) (err error) {
+	checkQry := `SELECT usename FROM pg_shadow WHERE usename = %s
+	AND Passwd IS NOT NULL AND usename != CURRENT_USER`
+	exists, err := ph.runQueryExists(checkQry, userName)
+	if err != nil {
+		return err
+	}
+	if exists {
+		err = ph.runQueryExec(fmt.Sprintf("ALTER USER %s WITH PASSWORD NULL", identifier(userName)))
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

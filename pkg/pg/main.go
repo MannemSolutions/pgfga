@@ -23,7 +23,11 @@ func identifier(objectName string) (escaped string) {
 	return fmt.Sprintf("\"%s\"", strings.Replace(objectName, "\"", "\"\"", -1))
 }
 
-// connstrDbName returns the db name ready to be used in a connection string
-func connstrDbName(objectName string) (escaped string) {
+// quotedSqlValue uses proper quoting for values in SQL queries
+func quotedSqlValue(objectName string) (escaped string) {
+	return fmt.Sprintf("'%s'", strings.Replace(objectName, "'", "''", -1))
+}
+// connectStringValue uses proper quoting for connect string values
+func connectStringValue(objectName string) (escaped string) {
 	return fmt.Sprintf("'%s'", strings.Replace(objectName, "'", "\\'", -1))
 }
