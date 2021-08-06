@@ -3,6 +3,7 @@ package internal
 import (
 	"encoding/base64"
 	"fmt"
+	"github.com/mannemsolutions/pgfga/pkg/pg"
 	"go.uber.org/zap/zapcore"
 	"io/ioutil"
 	"os"
@@ -26,11 +27,6 @@ const (
 type FgaGeneralConfig struct {
 	LogLevel zapcore.Level `yaml:"loglevel"`
 	RunDelay int           `yaml:"run_delay"`
-}
-
-type FgaStrictConfig struct {
-	Users     bool `yaml:"users"`
-	Databases bool `yaml:"databases"`
 }
 
 type FgaLdapConfig struct {
@@ -126,12 +122,19 @@ type FgaPostgresConfig struct {
     dsn map[string]string `yaml:"dsn"`
 }
 
-func (fpc FgaPostgresConfig) DSN() (dsn string) {
+func (fpc FgaPostgresConfig) DSN() (connParams string) {
 	var pairs []string
 	for key, value := range fpc.dsn {
 		pairs = append(pairs, fmt.Sprintf("%s=%s", key, value))
 	}
 	return strings.Join(pairs[:], " ")
+}
+
+func (fpc FgaPostgresConfig) KeyPairs() (connParams map[string]string) {
+	for key, value := range fpc.dsn {
+		connParams[key] = value
+	}
+	return connParams
 }
 
 type FgaExtensionConfig struct {
@@ -195,7 +198,7 @@ type FgaRoles struct {
 
 type FgaConfig struct {
 	GeneralConfig        FgaGeneralConfig               `yaml:"general"`
-	StrictConfig       FgaStrictConfig                     `yaml:"strict"`
+	StrictConfig       pg.StrictOptions                     `yaml:"strict"`
 	LdapConfig    FgaLdapConfig `yaml:"ldap"`
 	PgConfig FgaPostgresConfig                       `yaml:"postgresql"`
 	DbsConfig map[string]FgaDbConfig `yaml:"databases"`

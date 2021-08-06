@@ -6,10 +6,19 @@ import (
 	"strings"
 )
 
+type MemberType int
+
+const (
+	 GroupMType MemberType = iota
+	 UserMType
+	 UnknownMType
+)
+
 type Member struct {
 	dn       string
 	pair     string
 	name     string
+	mType	 MemberType
 	parents  Members
 	children Members
 }
@@ -32,6 +41,17 @@ func NewMember(Id string) (m *Member, err error) {
 	return m, m.SetFromId(Id)
 }
 
+func GetMemberType(key string) (mt MemberType){
+	switch key {
+	case "cn":
+		return GroupMType
+	case "uid":
+		return UserMType
+	default:
+		return UnknownMType
+	}
+}
+
 // SetFromId allows dn, id, and name to be set if they are not set yet, but determines it makes sense before doing so
 func (m *Member) SetFromId(Id string) (err error) {
 	if m.dn != "" {
@@ -42,6 +62,7 @@ func (m *Member) SetFromId(Id string) (err error) {
 		if m.pair != "" && m.pair != pair {
 			return errors.New("trying to set dn, while pair is already set differently")
 		}
+		key := strings.Split(pair, "=")[0]
 		name := strings.Split(pair, "=")[1]
 		if m.name != "" && m.name != name {
 			return errors.New("trying to set dn, while name is already set differently")
@@ -49,23 +70,35 @@ func (m *Member) SetFromId(Id string) (err error) {
 		m.dn = Id
 		m.pair = pair
 		m.name = name
+		m.mType = GetMemberType(key)
 		return
 	}
 	if m.pair != "" {
 		return nil
 	}
 	if validLdapPair(Id) {
+		key := strings.Split(Id, "=")[0]
 		name := strings.Split(Id, "=")[1]
 		if m.name != "" && m.name != name {
 			return errors.New("trying to set pai, while name is already set differently")
 		}
 		m.pair = Id
 		m.name = name
+		m.mType = GetMemberType(key)
 	}
 	if m.name != "" {
 		return nil
 	}
 	m.name = Id
+	m.mType = UnknownMType
+	return nil
+}
+
+func (m *Member) SetMType(mt MemberType) (err error){
+	if m.mType != UnknownMType {
+		return errors.New("cannot set MemberType when already set")
+	}
+	m.mType = mt
 	return nil
 }
 

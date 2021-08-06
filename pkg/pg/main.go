@@ -1,10 +1,9 @@
 package pg
 
 import (
-	"context"
 	"fmt"
-	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
+	"strings"
 )
 
 var log *zap.SugaredLogger
@@ -12,47 +11,19 @@ func Initialize(logger *zap.SugaredLogger) {
 	log = logger
 }
 
-type Handler struct {
-	connString string
-	conn *pgx.Conn
+var InvalidOption error
+
+type StrictOptions struct {
+	Users      bool `yaml:"users"`
+	Databases  bool `yaml:"databases"`
+	Extensions bool `yaml:"extensions"`
+}
+// identifier returns the object name ready to be used in a sql query as an object name (e.a. select * from %s)
+func identifier(objectName string) (escaped string) {
+	return fmt.Sprintf("\"%s\"", strings.Replace(objectName, "\"", "\"\"", -1))
 }
 
-func NewPgHandler(connString string) (ph *Handler) {
-	return &Handler{
-		connString: connString,
-	}
-}
-
-func (ph *Handler) Connect() (err error) {
-	if ph.conn != nil {
-		if ph.conn.IsClosed() {
-			ph.conn = nil
-		} else {
-			return nil
-		}
-	}
-	ph.conn, err = pgx.Connect(context.Background(), ph.connString)
-	if err != nil {
-		ph.conn = nil
-		return err
-	}
-	return nil
-}
-
-func (ph *Handler) runQueryGetOneField(query string) (answer string, err error) {
-	err = ph.Connect()
-	if err != nil {
-		return "", err
-	}
-
-	err = ph.conn.QueryRow(context.Background(), query).Scan(&answer)
-	if err != nil {
-		return "", fmt.Errorf("runQueryGetOneField (%s) failed: %v\n", query, err)
-	}
-	return answer, nil
-}
-
-func (ph *Handler) GrantRole(user string, role string) (err error) {
-	log.Infof("GRANT %s to %s", role, user)
-	return nil
+// connstrDbName returns the db name ready to be used in a connection string
+func connstrDbName(objectName string) (escaped string) {
+	return fmt.Sprintf("'%s'", strings.Replace(objectName, "'", "\\'", -1))
 }

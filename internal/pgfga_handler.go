@@ -57,7 +57,7 @@ func NewPgFgaHandler() (pfh *PgFgaHandler, err error) {
 
 	pfh.ldap = ldap.NewLdapHandler(config.LdapConfig.Servers, ldapUser, ldapPassword, config.LdapConfig.MaxRetries)
 
-	pfh.pg = pg.NewPgHandler(config.PgConfig.DSN())
+	pfh.pg = pg.NewPgHandler(config.PgConfig.KeyPairs(), config.StrictConfig)
 
 	return pfh, nil
 }
