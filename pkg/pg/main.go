@@ -13,6 +13,8 @@ func Initialize(logger *zap.SugaredLogger) {
 
 var InvalidOption error
 
+type Dsn map[string]string
+
 type StrictOptions struct {
 	Users      bool `yaml:"users"`
 	Databases  bool `yaml:"databases"`

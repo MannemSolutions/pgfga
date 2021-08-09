@@ -33,4 +33,8 @@ protectedDatabases = map[string]bool{"postgres": true,
 	"template0": true,
 	"template1": true,
 }
+
+LogonOptions = []string{"LOGON"}
+
+EmptyOptions []string
 )

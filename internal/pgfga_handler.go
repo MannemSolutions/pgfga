@@ -57,7 +57,7 @@ func NewPgFgaHandler() (pfh *PgFgaHandler, err error) {
 
 	pfh.ldap = ldap.NewLdapHandler(config.LdapConfig.Servers, ldapUser, ldapPassword, config.LdapConfig.MaxRetries)
 
-	pfh.pg = pg.NewPgHandler(config.PgConfig.KeyPairs(), config.StrictConfig)
+	pfh.pg = pg.NewPgHandler(config.PgConfig.Dsn, config.StrictConfig)
 
 	return pfh, nil
 }
@@ -82,10 +82,16 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 				return err
 			}
 			for _, ms := range baseGroup.MembershipTree() {
-				err = pfh.pg.GrantRole(ms.Member.Name(), ms.MemberOf.Name())
+				// First make sure role is created with the right options
+				options := pg.EmptyOptions
+				if ms.Member.GetMType() == ldap.UserMType {
+					options = pg.LogonOptions
+				}
+				_, err := pg.NewRole(pfh.pg, ms.Member.Name(), options)
 				if err != nil {
 					return err
 				}
+				pfh.pg.GrantRole(ms.Member.Name(), baseGroup.Name())
 			}
 		}
 	}

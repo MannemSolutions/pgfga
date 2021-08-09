@@ -32,13 +32,10 @@ ldap:
 
 postgresql:
   dsn:
-    host: 172.17.0.2
-    user: pgcdfga
+    host: 127.0.0.1
+    user: postgres
     connect_timeout: 10
-    sslcert: /pgcdfga_config/client_pgcdfga_chain.pem
-    sslkey: /pgcdfga_config/client_pgcdfga.key
-    sslrootcert: /pgcdfga_config/serverca.pem
-    sslmode: verify-ca
+    password: pgfga
 
 databases:
   sebas:

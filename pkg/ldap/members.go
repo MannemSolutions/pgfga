@@ -102,6 +102,10 @@ func (m *Member) SetMType(mt MemberType) (err error){
 	return nil
 }
 
+func (m *Member) GetMType() (mt MemberType){
+	return m.mType
+}
+
 func (m *Member) Name() (name string) {
 	return m.name
 }

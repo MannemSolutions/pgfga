@@ -119,22 +119,7 @@ func (flc FgaLdapConfig) Password() (password string, err error) {
 }
 
 type FgaPostgresConfig struct {
-    dsn map[string]string `yaml:"dsn"`
-}
-
-func (fpc FgaPostgresConfig) DSN() (connParams string) {
-	var pairs []string
-	for key, value := range fpc.dsn {
-		pairs = append(pairs, fmt.Sprintf("%s=%s", key, value))
-	}
-	return strings.Join(pairs[:], " ")
-}
-
-func (fpc FgaPostgresConfig) KeyPairs() (connParams map[string]string) {
-	for key, value := range fpc.dsn {
-		connParams[key] = value
-	}
-	return connParams
+    Dsn pg.Dsn `yaml:"dsn"`
 }
 
 type FgaExtensionConfig struct {
