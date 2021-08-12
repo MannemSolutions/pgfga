@@ -9,11 +9,14 @@ import (
 type Databases map[string]Database
 
 type Database struct {
-	defaultHandler *Handler
-	dbHandler *Handler
+	// for DB's created from yaml, handler and name are set by the pg.Handler
+	handler *Handler
 	name string
-	owner string
-	extensions Extensions
+	// conn is created from handler when required
+	conn *Conn
+	Owner string `yaml:"owner"`
+	Extensions Extensions `yaml:"extensions"`
+	State string `yaml:"state"`
 }
 
 func NewDatabase(handler *Handler, name string, owner string) (d *Database) {
@@ -26,76 +29,84 @@ func NewDatabase(handler *Handler, name string, owner string) (d *Database) {
 		owner = name
 	}
 	d = &Database{
-		defaultHandler: handler,
+		handler: handler,
 		name: name,
-		owner: owner,
-		extensions: make(Extensions),
+		Owner: owner,
+		Extensions: make(Extensions),
 	}
 	handler.databases[name] = *d
 	return d
 }
 
-func (d *Database) GetDbHandler() (h *Handler) {
-	if d.dbHandler != nil {
-		return d.dbHandler
+//SetDefaults is called to set all defaults for databases created from yaml
+func (d *Database) SetDefaults() {
+	for name, ext := range d.Extensions {
+		ext.db = d
+		ext.name = name
+	}
+}
+
+func (d *Database) GetDbConnection() (c *Conn) {
+	if d.conn != nil {
+		return d.conn
 	}
 	// not yet initialized. Let's initialize
-	if d.defaultHandler.DbName() == d.name {
-		d.dbHandler = d.defaultHandler
-		return d.dbHandler
+	if d.handler.conn.DbName() == d.name {
+		d.conn = d.handler.conn
+		return d.conn
 	}
 
 	var connParams map[string]string
-	for key, value := range d.defaultHandler.connParams {
+	for key, value := range d.handler.conn.connParams {
 		connParams[key] = value
 	}
 	connParams["dbname"] = d.name
-	d.dbHandler = NewPgHandler(connParams, d.defaultHandler.strictOptions)
-	return d.dbHandler
+	d.conn = NewConn(connParams)
+	return d.conn
 }
 
 func (d Database) Drop() (err error) {
-	ph := d.defaultHandler
+	ph := d.handler
 	if ph.strictOptions.Users {
 		log.Infof("skipping drop of database %s (not running with strict option for databases", d.name)
 		return nil
 	}
-	exists, err := ph.runQueryExists("SELECT datname FROM pg_database WHERE datname = $1", d.name)
+	exists, err := ph.conn.runQueryExists("SELECT datname FROM pg_database WHERE datname = $1", d.name)
 	if err != nil {
 		return err
 	}
 	if exists {
-		return ph.runQueryExec(fmt.Sprintf("drop database %s", identifier(d.name)))
+		return ph.conn.runQueryExec(fmt.Sprintf("drop database %s", identifier(d.name)))
 	}
 	return nil
 }
 
 func (d Database) Create() (err error) {
-	ph := d.defaultHandler
+	ph := d.handler
 
-	exists, err := ph.runQueryExists("SELECT datname FROM pg_database WHERE datname = $1", d.name)
+	exists, err := ph.conn.runQueryExists("SELECT datname FROM pg_database WHERE datname = $1", d.name)
 	if err != nil {
 		return err
 	}
 	if ! exists {
-		err = ph.runQueryExec(fmt.Sprintf("CREATE DATABASE %s", identifier(d.name)))
+		err = ph.conn.runQueryExec(fmt.Sprintf("CREATE DATABASE %s", identifier(d.name)))
 		if err != nil {
 			return err
 		}
 		log.Infof("Created database '%s'", d.name)
 	}
-	exists, err = ph.runQueryExists("SELECT datname FROM pg_database db inner join pg_roles rol on db.datdba = rol.oid WHERE datname = $1 and rolname = $2", d.name, d.owner)
+	exists, err = ph.conn.runQueryExists("SELECT datname FROM pg_database db inner join pg_roles rol on db.datdba = rol.oid WHERE datname = $1 and rolname = $2", d.name, d.Owner)
 	if err != nil {
 		return err
 	}
 	if ! exists {
-		err = ph.runQueryExec(fmt.Sprintf("ALTER DATABASE %s OWNER TO %s", identifier(d.name), identifier(d.owner)))
+		err = ph.conn.runQueryExec(fmt.Sprintf("ALTER DATABASE %s OWNER TO %s", identifier(d.name), identifier(d.Owner)))
 		if err != nil {
 			return err
 		}
-		log.Infof("Altered database owner on '%s' to '%s'", d.name, d.owner)
+		log.Infof("Altered database owner on '%s' to '%s'", d.name, d.Owner)
 	}
-	err = ph.GrantRole(d.owner, "opex")
+	err = ph.GrantRole(d.Owner, "opex")
 	if err != nil {
 		return err
 	}
@@ -108,8 +119,8 @@ func (d Database) Create() (err error) {
 }
 
 func (d Database) SetReadOnlyGrants(readOnlyRoleName string) (err error) {
-	ph := d.GetDbHandler()
-	err = ph.Connect()
+	c := d.GetDbConnection()
+	err = c.Connect()
 	if err != nil {
 		return err
 	}
@@ -118,7 +129,7 @@ func (d Database) SetReadOnlyGrants(readOnlyRoleName string) (err error) {
 	query := `select distinct schemaname from pg_tableswhere schemaname not in ('pg_catalog','information_schema')
 			  and schemaname||'.'||tablename not in (SELECT table_schema||'.'||table_name 
               FROM information_schema.role_table_grants WHERE grantee = $1 and privilege_type = 'SELECT')`
-	row := ph.conn.QueryRow(context.Background(), query, readOnlyRoleName)
+	row := c.conn.QueryRow(context.Background(), query, readOnlyRoleName)
 	for {
 		scanErr := row.Scan(&schema)
 		if scanErr == pgx.ErrNoRows {
@@ -129,7 +140,7 @@ func (d Database) SetReadOnlyGrants(readOnlyRoleName string) (err error) {
 		schemas = append(schemas, schema)
 	}
 	for _, schema := range schemas {
-		err = ph.runQueryExec(fmt.Sprintf("GRANT SELECT ON ALL TABLES IN SCHEMA %s TO %s", identifier(schema),
+		err = c.runQueryExec(fmt.Sprintf("GRANT SELECT ON ALL TABLES IN SCHEMA %s TO %s", identifier(schema),
 			identifier(readOnlyRoleName)))
 		if err != nil {
 			return err
@@ -138,15 +149,22 @@ func (d Database) SetReadOnlyGrants(readOnlyRoleName string) (err error) {
 	return nil
 }
 
-func (d *Database) AddExtension(name string, schema string, version string) (e *Extension) {
-	e = NewExtension(d, name , schema , version )
-	d.extensions[name] = *e
-	return e
+func (d *Database) AddExtension(name string, schema string, version string) (e *Extension, err error) {
+	e, err = NewExtension(d, name , schema , version )
+	if err != nil {
+		return nil, err
+	}
+	d.Extensions[name] = *e
+	return e, nil
 }
 
-func (d *Database) CreateExtensions() (err error) {
-	for _, e := range d.extensions {
-		err = e.Create()
+func (d *Database) CreateOrDropExtensions() (err error) {
+	for _, e := range d.Extensions {
+		if e.State == "present" {
+			err = e.Create()
+		} else {
+			err = e.Drop()
+		}
 		if err != nil {
 			return err
 		}

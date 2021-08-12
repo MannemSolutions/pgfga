@@ -45,19 +45,9 @@ func NewPgFgaHandler() (pfh *PgFgaHandler, err error) {
 		config: config,
 	}
 
-	ldapUser, err := config.LdapConfig.User()
-	if err != nil {
-		return pfh, err
-	}
+	pfh.ldap = ldap.NewLdapHandler(config.LdapConfig)
 
-	ldapPassword, err := config.LdapConfig.Password()
-	if err != nil {
-		return pfh, err
-	}
-
-	pfh.ldap = ldap.NewLdapHandler(config.LdapConfig.Servers, ldapUser, ldapPassword, config.LdapConfig.MaxRetries)
-
-	pfh.pg = pg.NewPgHandler(config.PgConfig.Dsn, config.StrictConfig)
+	pfh.pg = pg.NewPgHandler(config.PgConfig.Dsn, config.StrictConfig, config.DbsConfig)
 
 	return pfh, nil
 }
@@ -91,7 +81,10 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 				if err != nil {
 					return err
 				}
-				pfh.pg.GrantRole(ms.Member.Name(), baseGroup.Name())
+				err = pfh.pg.GrantRole(ms.Member.Name(), baseGroup.Name())
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

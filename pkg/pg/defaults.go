@@ -1,7 +1,7 @@
 package pg
 
 var (
-validRoleOptions = map[string]string{"SUPERUSER": "rolsuper",
+ValidRoleOptions = map[string]string{"SUPERUSER": "rolsuper",
 	"NOSUPERUSER": "not rolsuper",
 	"NOCREATEDB": "not rolcreatedb",
 	"CREATEROLE ": "rolcreaterole",
@@ -16,7 +16,7 @@ validRoleOptions = map[string]string{"SUPERUSER": "rolsuper",
 	"NOREPLICATION": "not rolreplication",
 }
 
-protectedRoles = map[string]bool{"aq_administrator_role": true,
+ProtectedRoles = map[string]bool{"aq_administrator_role": true,
 	"enterprisedb": true,
 	"postgres": true,
 	"pg_monitor": true,
@@ -29,7 +29,7 @@ protectedRoles = map[string]bool{"aq_administrator_role": true,
 	"pg_execute_server_program": true,
 }
 
-protectedDatabases = map[string]bool{"postgres": true,
+ProtectedDatabases = map[string]bool{"postgres": true,
 	"template0": true,
 	"template1": true,
 }

@@ -7,23 +7,15 @@ import (
 
 
 type Handler struct {
-	servers    []string
-	userName   string
-	password   string
+	config Config
 	conn       *ldap.Conn
-	maxRetries int
 	members    Members
 }
 
-func NewLdapHandler(servers []string, user string, password string, maxRetries int) (lh *Handler) {
-	if maxRetries < 1 {
-		maxRetries = 1
-	}
+func NewLdapHandler(config Config) (lh *Handler) {
+	config.SetDefaults()
 	return &Handler{
-		servers: servers,
-		userName: user,
-		password: password,
-		maxRetries: maxRetries,
+		config: config,
 		members: make(Members),
 	}
 }
@@ -32,13 +24,21 @@ func (lh *Handler) Connect() (err error){
 	if lh.conn != nil {
 		return nil
 	}
-	for i:= 0; i < lh.maxRetries; i++ {
-		for _, server := range lh.servers {
+	for i:= 0; i < lh.config.MaxRetries; i++ {
+		for _, server := range lh.config.Servers {
 			conn, err := ldap.DialURL(server)
 			if err != nil {
 				continue
 			}
-			err = conn.Bind(lh.userName,lh.password)
+			user, err := lh.config.User()
+			if err != nil {
+				return err
+			}
+			pwd, err := lh.config.Password()
+			if err != nil {
+				return err
+			}
+			err = conn.Bind(user, pwd)
 			if err != nil {
 				return err
 			}
