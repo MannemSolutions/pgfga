@@ -9,16 +9,16 @@ import (
 type MemberType int
 
 const (
-	 GroupMType MemberType = iota
-	 UserMType
-	 UnknownMType
+	GroupMType MemberType = iota
+	UserMType
+	UnknownMType
 )
 
 type Member struct {
 	dn       string
 	pair     string
 	name     string
-	mType	 MemberType
+	mType    MemberType
 	parents  Members
 	children Members
 }
@@ -28,20 +28,20 @@ func validDn(dn string) bool {
 	return validDn.MatchString(dn)
 }
 
-func validLdapPair(pair string) (isValid bool){
+func validLdapPair(pair string) (isValid bool) {
 	var validPair = regexp.MustCompile(`^[a-zA-Z]+=[a-zA-Z0-9]+$`)
 	return validPair.MatchString(pair)
 }
 
 func NewMember(Id string) (m *Member, err error) {
 	m = &Member{
-		parents: make(Members),
+		parents:  make(Members),
 		children: make(Members),
 	}
 	return m, m.SetFromId(Id)
 }
 
-func GetMemberType(key string) (mt MemberType){
+func GetMemberType(key string) (mt MemberType) {
 	switch key {
 	case "cn":
 		return GroupMType
@@ -94,7 +94,7 @@ func (m *Member) SetFromId(Id string) (err error) {
 	return nil
 }
 
-func (m *Member) SetMType(mt MemberType) (err error){
+func (m *Member) SetMType(mt MemberType) (err error) {
 	if m.mType != UnknownMType {
 		return errors.New("cannot set MemberType when already set")
 	}
@@ -102,7 +102,7 @@ func (m *Member) SetMType(mt MemberType) (err error){
 	return nil
 }
 
-func (m *Member) GetMType() (mt MemberType){
+func (m *Member) GetMType() (mt MemberType) {
 	return m.mType
 }
 
@@ -141,7 +141,7 @@ type Memberships []Membership
 func (m *Member) MembershipTree() (mss Memberships) {
 	for _, member := range m.children {
 		ms := Membership{
-			Member: member,
+			Member:   member,
 			MemberOf: m,
 		}
 		mss = append(mss, ms)
@@ -153,7 +153,7 @@ func (m *Member) MembershipTree() (mss Memberships) {
 
 type Members map[string]*Member
 
-func (ms Members) GetById(Id string, AddWhenMissing bool) (m *Member, err error){
+func (ms Members) GetById(Id string, AddWhenMissing bool) (m *Member, err error) {
 	m, err = NewMember(Id)
 	if err != nil {
 		return m, err
@@ -162,7 +162,7 @@ func (ms Members) GetById(Id string, AddWhenMissing bool) (m *Member, err error)
 		// Already exists, so just return that one
 		return ms[m.name], nil
 	}
-	if ! AddWhenMissing {
+	if !AddWhenMissing {
 		return &Member{}, nil
 	}
 	// ms is not a *Members, cause Members is already a points (map[string]Member).

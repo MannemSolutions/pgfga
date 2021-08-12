@@ -1,13 +1,13 @@
 package ldap
 
 type Config struct {
-	Usr     Credential   `yaml:"user"`
-	Pwd          Credential   `yaml:"password"`
-	Servers      []string `yaml:"servers"`
-	MaxRetries   int      `yaml:"conn_retries"`
+	Usr        Credential `yaml:"user"`
+	Pwd        Credential `yaml:"password"`
+	Servers    []string   `yaml:"servers"`
+	MaxRetries int        `yaml:"conn_retries"`
 }
 
-func (c *Config) SetDefaults() () {
+func (c *Config) SetDefaults() {
 	if c.MaxRetries < 1 {
 		c.MaxRetries = 1
 	}
@@ -28,4 +28,3 @@ func (c Config) Password() (pwd string, err error) {
 	}
 	return pwd, nil
 }
-

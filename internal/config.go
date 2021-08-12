@@ -28,16 +28,16 @@ type FgaGeneralConfig struct {
 }
 
 type FgaPostgresConfig struct {
-    Dsn pg.Dsn `yaml:"dsn"`
+	Dsn pg.Dsn `yaml:"dsn"`
 }
 
 type FgaUserConfig struct {
-	Auth string `yaml:"auth"`
-	BaseDN string `yaml:"ldapbasedn"`
-	Filter string `yaml:"ldapfilter"`
-	MemberOf []string `yaml:"memberof"`
-	Expiry time.Time `yaml:"expiry"`
-	Password string `yaml:"password"`
+	Auth     string    `yaml:"auth"`
+	BaseDN   string    `yaml:"ldapbasedn"`
+	Filter   string    `yaml:"ldapfilter"`
+	MemberOf []string  `yaml:"memberof"`
+	Expiry   time.Time `yaml:"expiry"`
+	Password string    `yaml:"password"`
 }
 
 type FgaRoleOptions string
@@ -61,17 +61,17 @@ func (opt FgaRoleOptions) SqlOption() (sql string) {
 
 type FgaRoles struct {
 	Options  []FgaRoleOptions `yaml:"options"`
-	MemberOf []string `yaml:"member"`
+	MemberOf []string         `yaml:"member"`
 }
 
 type FgaConfig struct {
-	GeneralConfig        FgaGeneralConfig               `yaml:"general"`
-	StrictConfig       pg.StrictOptions                     `yaml:"strict"`
-	LdapConfig    ldap.Config `yaml:"ldap"`
-	PgConfig FgaPostgresConfig                       `yaml:"postgresql"`
-	DbsConfig pg.Databases `yaml:"databases"`
-	UserConfig map[string]FgaUserConfig `yaml:"users"`
-	Debug      bool                       `yaml:"debug"`
+	GeneralConfig FgaGeneralConfig         `yaml:"general"`
+	StrictConfig  pg.StrictOptions         `yaml:"strict"`
+	LdapConfig    ldap.Config              `yaml:"ldap"`
+	PgConfig      FgaPostgresConfig        `yaml:"postgresql"`
+	DbsConfig     pg.Databases             `yaml:"databases"`
+	UserConfig    map[string]FgaUserConfig `yaml:"users"`
+	Debug         bool                     `yaml:"debug"`
 }
 
 func NewConfig() (config FgaConfig, err error) {

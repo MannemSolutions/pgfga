@@ -1,24 +1,24 @@
 package pg
 
 type Handler struct {
-	conn *Conn
+	conn          *Conn
 	strictOptions StrictOptions
-	databases Databases
-	roles Roles
+	databases     Databases
+	roles         Roles
 }
 
 func NewPgHandler(connParams Dsn, options StrictOptions, databases Databases) (ph *Handler) {
 	ph = &Handler{
-		conn: NewConn(connParams),
+		conn:          NewConn(connParams),
 		strictOptions: options,
-		databases: databases,
-		roles: make(Roles),
+		databases:     databases,
+		roles:         make(Roles),
 	}
 	ph.setDefaults()
 	return ph
 }
 
-func (ph *Handler) setDefaults() () {
+func (ph *Handler) setDefaults() {
 	for name, db := range ph.databases {
 		db.handler = ph
 		db.name = name
@@ -50,7 +50,7 @@ func (ph *Handler) GrantRole(granteeName string, grantedName string) (err error)
 }
 
 func (ph *Handler) StrictifyRoles() (err error) {
- return nil
+	return nil
 }
 
 func (ph *Handler) StrictifyDatabases() (err error) {

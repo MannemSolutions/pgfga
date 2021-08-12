@@ -12,7 +12,7 @@ type Roles map[string]Role
 
 type Role struct {
 	handler *Handler
-	name string
+	name    string
 	options []string
 }
 
@@ -24,7 +24,7 @@ func NewRole(handler *Handler, name string, options []string) (r *Role, err erro
 	}
 	r = &Role{
 		handler: handler,
-		name: name,
+		name:    name,
 		options: options,
 	}
 	err = r.Create()
@@ -38,7 +38,7 @@ func NewRole(handler *Handler, name string, options []string) (r *Role, err erro
 func (r *Role) Drop() (err error) {
 	ph := r.handler
 	c := ph.conn
-	if ! ph.strictOptions.Users {
+	if !ph.strictOptions.Users {
 		log.Infof("not dropping user/role %s (config.strict.roles is not True)", r.name)
 		return nil
 	}
@@ -47,7 +47,7 @@ func (r *Role) Drop() (err error) {
 	if err != nil {
 		return err
 	}
-	if ! exists {
+	if !exists {
 		delete(r.handler.roles, r.name)
 		return nil
 	}
@@ -84,7 +84,7 @@ func (r Role) Create() (err error) {
 	if err != nil {
 		return err
 	}
-	if ! exists {
+	if !exists {
 		err = c.runQueryExec(fmt.Sprintf("create role %s", identifier(r.name)))
 		if err != nil {
 			return err
@@ -108,19 +108,19 @@ func (r Role) Create() (err error) {
 func (r Role) setRoleOption(option string) (err error) {
 	c := r.handler.conn
 	option = strings.ToUpper(option)
-	if optionSql, ok := ValidRoleOptions[option]; ! ok {
-		exists, err := c.runQueryExists("SELECT rolname FROM pg_roles WHERE rolname = $1 AND " + optionSql, r.name)
+	if optionSql, ok := ValidRoleOptions[option]; !ok {
+		exists, err := c.runQueryExists("SELECT rolname FROM pg_roles WHERE rolname = $1 AND "+optionSql, r.name)
 		if err != nil {
 			return err
 		}
-		if ! exists {
+		if !exists {
 			log.Debugf("setRoleOption ALTER %s with %s", r.name, option)
-			err = c.runQueryExec(fmt.Sprintf("ALTER ROLE %s WITH " + option, identifier(r.name)))
+			err = c.runQueryExec(fmt.Sprintf("ALTER ROLE %s WITH "+option, identifier(r.name)))
 			if err != nil {
 				return err
 			}
 		}
-	} else  {
+	} else {
 		return InvalidOption
 	}
 	return nil
@@ -137,7 +137,7 @@ func (r Role) GrantRole(grantedRole *Role) (err error) {
 	if err != nil {
 		return err
 	}
-	if ! exists {
+	if !exists {
 		err = c.runQueryExec(fmt.Sprintf("GRANT %s TO %s", identifier(grantedRole.name), identifier(r.name)))
 		if err != nil {
 			return err
@@ -181,7 +181,7 @@ func (r Role) SetPassword(userName string, password string) (err error) {
 	if err != nil {
 		return err
 	}
-	if ! exists {
+	if !exists {
 		err = c.runQueryExec(fmt.Sprintf("ALTER USER %s WITH ENCRYPTED PASSWORD $1", identifier(userName)),
 			hashedPassword)
 		if err != nil {

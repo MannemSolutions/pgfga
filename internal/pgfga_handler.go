@@ -10,9 +10,10 @@ import (
 )
 
 var (
-	log *zap.SugaredLogger
+	log  *zap.SugaredLogger
 	atom zap.AtomicLevel
 )
+
 func Initialize() {
 	atom = zap.NewAtomicLevel()
 	encoderCfg := zap.NewDevelopmentEncoderConfig()

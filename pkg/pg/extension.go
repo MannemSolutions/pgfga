@@ -8,10 +8,10 @@ type Extensions map[string]Extension
 
 type Extension struct {
 	// name and db are set by the database
-	db *Database
-	name string
-	Schema string `yaml:"schema"`
-	State string `yaml:"state"`
+	db      *Database
+	name    string
+	Schema  string `yaml:"schema"`
+	State   string `yaml:"state"`
 	Version string `yaml:"version"`
 }
 
@@ -25,11 +25,11 @@ func NewExtension(db *Database, name string, schema string, version string) (e *
 		return &ext, nil
 	}
 	e = &Extension{
-		db: db,
-		name: name,
-		Schema: schema,
+		db:      db,
+		name:    name,
+		Schema:  schema,
 		Version: version,
-		State: "present",
+		State:   "present",
 	}
 	db.Extensions[name] = *e
 	return e, nil
@@ -38,7 +38,7 @@ func NewExtension(db *Database, name string, schema string, version string) (e *
 func (e Extension) Drop() (err error) {
 	ph := e.db.handler
 	c := e.db.GetDbConnection()
-	if ! e.db.handler.strictOptions.Extensions {
+	if !e.db.handler.strictOptions.Extensions {
 		log.Infof("not dropping extension '%s'.'%s' (config.strict.roles is not True)", e.db.name, e.name)
 		return nil
 	}
@@ -47,15 +47,15 @@ func (e Extension) Drop() (err error) {
 	if err != nil {
 		return err
 	}
-	if ! exists {
+	if !exists {
 		return nil
 	}
 
 	dbConn := ph.GetDb(e.db.name).GetDbConnection()
-		err = dbConn.runQueryExec("DROP EXTENSION IF EXISTS " + identifier(e.name))
-		if err != nil {
-			return err
-		}
+	err = dbConn.runQueryExec("DROP EXTENSION IF EXISTS " + identifier(e.name))
+	if err != nil {
+		return err
+	}
 	delete(e.db.Extensions, e.name)
 	log.Infof("Dropped '%s'.'%s'", e.db.name, e.name)
 	return nil
@@ -107,7 +107,7 @@ func (e Extension) Create() (err error) {
 		return err
 	}
 	if currentVersion != e.Version {
-		err = c.runQueryExec("ALTER EXTENSION " + identifier(e.name) + " UPDATE TO $1", e.Version)
+		err = c.runQueryExec("ALTER EXTENSION "+identifier(e.name)+" UPDATE TO $1", e.Version)
 		if err != nil {
 			return err
 		}

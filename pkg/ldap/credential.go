@@ -8,9 +8,9 @@ import (
 )
 
 type Credential struct {
-	Value     string   `yaml:"value"`
-	File     string   `yaml:"file"`
-	Base64       bool     `yaml:"base64"`
+	Value  string `yaml:"value"`
+	File   string `yaml:"file"`
+	Base64 bool   `yaml:"base64"`
 }
 
 func isExecutable(filename string) (isExecutable bool, err error) {

@@ -11,7 +11,7 @@ import (
 
 type Conn struct {
 	connParams Dsn
-	conn *pgx.Conn
+	conn       *pgx.Conn
 }
 
 func NewConn(connParams Dsn) (c *Conn) {

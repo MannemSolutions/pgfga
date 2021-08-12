@@ -5,26 +5,25 @@ import (
 	"github.com/go-ldap/ldap/v3"
 )
 
-
 type Handler struct {
-	config Config
-	conn       *ldap.Conn
-	members    Members
+	config  Config
+	conn    *ldap.Conn
+	members Members
 }
 
 func NewLdapHandler(config Config) (lh *Handler) {
 	config.SetDefaults()
 	return &Handler{
-		config: config,
+		config:  config,
 		members: make(Members),
 	}
 }
 
-func (lh *Handler) Connect() (err error){
+func (lh *Handler) Connect() (err error) {
 	if lh.conn != nil {
 		return nil
 	}
-	for i:= 0; i < lh.config.MaxRetries; i++ {
+	for i := 0; i < lh.config.MaxRetries; i++ {
 		for _, server := range lh.config.Servers {
 			conn, err := ldap.DialURL(server)
 			if err != nil {

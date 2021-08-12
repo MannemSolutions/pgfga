@@ -5,6 +5,7 @@ import (
 )
 
 var log *zap.SugaredLogger
+
 func Initialize(sugar *zap.SugaredLogger) {
 	log = sugar
 }

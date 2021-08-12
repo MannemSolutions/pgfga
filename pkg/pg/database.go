@@ -11,12 +11,12 @@ type Databases map[string]Database
 type Database struct {
 	// for DB's created from yaml, handler and name are set by the pg.Handler
 	handler *Handler
-	name string
+	name    string
 	// conn is created from handler when required
-	conn *Conn
-	Owner string `yaml:"owner"`
+	conn       *Conn
+	Owner      string     `yaml:"owner"`
 	Extensions Extensions `yaml:"extensions"`
-	State string `yaml:"state"`
+	State      string     `yaml:"state"`
 }
 
 func NewDatabase(handler *Handler, name string, owner string) (d *Database) {
@@ -29,9 +29,9 @@ func NewDatabase(handler *Handler, name string, owner string) (d *Database) {
 		owner = name
 	}
 	d = &Database{
-		handler: handler,
-		name: name,
-		Owner: owner,
+		handler:    handler,
+		name:       name,
+		Owner:      owner,
 		Extensions: make(Extensions),
 	}
 	handler.databases[name] = *d
@@ -88,7 +88,7 @@ func (d Database) Create() (err error) {
 	if err != nil {
 		return err
 	}
-	if ! exists {
+	if !exists {
 		err = ph.conn.runQueryExec(fmt.Sprintf("CREATE DATABASE %s", identifier(d.name)))
 		if err != nil {
 			return err
@@ -99,7 +99,7 @@ func (d Database) Create() (err error) {
 	if err != nil {
 		return err
 	}
-	if ! exists {
+	if !exists {
 		err = ph.conn.runQueryExec(fmt.Sprintf("ALTER DATABASE %s OWNER TO %s", identifier(d.name), identifier(d.Owner)))
 		if err != nil {
 			return err
@@ -150,7 +150,7 @@ func (d Database) SetReadOnlyGrants(readOnlyRoleName string) (err error) {
 }
 
 func (d *Database) AddExtension(name string, schema string, version string) (e *Extension, err error) {
-	e, err = NewExtension(d, name , schema , version )
+	e, err = NewExtension(d, name, schema, version)
 	if err != nil {
 		return nil, err
 	}
