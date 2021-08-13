@@ -5,14 +5,16 @@ type Handler struct {
 	strictOptions StrictOptions
 	databases     Databases
 	roles         Roles
+	slots         ReplicationSlots
 }
 
-func NewPgHandler(connParams Dsn, options StrictOptions, databases Databases) (ph *Handler) {
+func NewPgHandler(connParams Dsn, options StrictOptions, databases Databases, slots ReplicationSlots) (ph *Handler) {
 	ph = &Handler{
 		conn:          NewConn(connParams),
 		strictOptions: options,
 		databases:     databases,
 		roles:         make(Roles),
+		slots:         slots,
 	}
 	ph.setDefaults()
 	return ph
@@ -23,6 +25,10 @@ func (ph *Handler) setDefaults() {
 		db.handler = ph
 		db.name = name
 		db.SetDefaults()
+	}
+	for name, rs := range ph.slots {
+		rs.handler = ph
+		rs.name = name
 	}
 }
 
@@ -47,6 +53,19 @@ func (ph *Handler) GrantRole(granteeName string, grantedName string) (err error)
 		return err
 	}
 	return grantee.GrantRole(granted)
+}
+func (ph *Handler) CreateOrDropDatabases() (err error) {
+	for _, d := range ph.databases {
+		if d.State.value {
+			err = d.Create()
+		} else {
+			err = d.Drop()
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (ph *Handler) StrictifyRoles() (err error) {

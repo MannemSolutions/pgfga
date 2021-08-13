@@ -20,6 +20,7 @@ type StrictOptions struct {
 	Users      bool `yaml:"users"`
 	Databases  bool `yaml:"databases"`
 	Extensions bool `yaml:"extensions"`
+	Slots      bool `yaml:"replication_slots"`
 }
 
 // identifier returns the object name ready to be used in a sql query as an object name (e.a. select * from %s)

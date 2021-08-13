@@ -48,13 +48,26 @@ func NewPgFgaHandler() (pfh *PgFgaHandler, err error) {
 
 	pfh.ldap = ldap.NewLdapHandler(config.LdapConfig)
 
-	pfh.pg = pg.NewPgHandler(config.PgConfig.Dsn, config.StrictConfig, config.DbsConfig)
+	slots := make(pg.ReplicationSlots)
+	for _, slotName := range config.Slots {
+		slot := pg.NewSlot(pfh.pg, slotName)
+		slots[slotName] = *slot
+	}
+	pfh.pg = pg.NewPgHandler(config.PgConfig.Dsn, config.StrictConfig, config.DbsConfig, slots)
 
 	return pfh, nil
 }
 
 func (pfh PgFgaHandler) Handle() {
-	err := pfh.HandleUsers()
+	err := pfh.HandleRoles()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = pfh.HandleUsers()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = pfh.HandleDatabases()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,12 +86,7 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 				return err
 			}
 			for _, ms := range baseGroup.MembershipTree() {
-				// First make sure role is created with the right options
-				options := pg.EmptyOptions
-				if ms.Member.GetMType() == ldap.UserMType {
-					options = pg.LogonOptions
-				}
-				_, err := pg.NewRole(pfh.pg, ms.Member.Name(), options)
+				_, err := pg.NewRole(pfh.pg, ms.Member.Name(), pg.LogonOptions)
 				if err != nil {
 					return err
 				}
@@ -86,6 +94,37 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 				if err != nil {
 					return err
 				}
+			}
+		}
+	}
+	return nil
+}
+
+func (pfh PgFgaHandler) HandleDatabases() (err error) {
+	return pfh.pg.CreateOrDropDatabases()
+}
+
+func (pfh PgFgaHandler) HandleRoles() (err error) {
+	for roleName, roleConfig := range pfh.config.Roles {
+		var options pg.RoleOptions
+		for _, optionName := range roleConfig.Options {
+			option := pg.RoleOption(optionName)
+			if option.Valid() {
+				options = append(options, option)
+			}
+		}
+		role, err := pg.NewRole(pfh.pg, roleName, options)
+		if err != nil {
+			return err
+		}
+		for _, groupName := range roleConfig.MemberOf {
+			group, err := pfh.pg.GetRole(groupName)
+			if err != nil {
+				return err
+			}
+			err = role.GrantRole(group)
+			if err != nil {
+				return err
 			}
 		}
 	}

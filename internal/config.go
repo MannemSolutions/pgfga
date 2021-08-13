@@ -24,6 +24,7 @@ const (
 type FgaGeneralConfig struct {
 	LogLevel zapcore.Level `yaml:"loglevel"`
 	RunDelay int           `yaml:"run_delay"`
+	Debug    bool          `yaml:"debug"`
 }
 
 type FgaPostgresConfig struct {
@@ -39,7 +40,7 @@ type FgaUserConfig struct {
 	Password string    `yaml:"password"`
 }
 
-type FgaRoles struct {
+type FgaRoleConfig struct {
 	Options  []pg.RoleOption `yaml:"options"`
 	MemberOf []string        `yaml:"member"`
 }
@@ -51,7 +52,8 @@ type FgaConfig struct {
 	PgConfig      FgaPostgresConfig        `yaml:"postgresql"`
 	DbsConfig     pg.Databases             `yaml:"databases"`
 	UserConfig    map[string]FgaUserConfig `yaml:"users"`
-	Debug         bool                     `yaml:"debug"`
+	Roles         map[string]FgaRoleConfig `yaml:"roles"`
+	Slots         []string                 `yaml:"replication_slots"`
 }
 
 func NewConfig() (config FgaConfig, err error) {

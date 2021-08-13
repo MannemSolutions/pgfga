@@ -11,7 +11,7 @@ type Extension struct {
 	db      *Database
 	name    string
 	Schema  string `yaml:"schema"`
-	State   string `yaml:"state"`
+	State   State  `yaml:"state"`
 	Version string `yaml:"version"`
 }
 
@@ -29,7 +29,7 @@ func NewExtension(db *Database, name string, schema string, version string) (e *
 		name:    name,
 		Schema:  schema,
 		Version: version,
-		State:   "present",
+		State:   Present,
 	}
 	db.Extensions[name] = *e
 	return e, nil

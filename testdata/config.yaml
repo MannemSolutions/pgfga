@@ -63,13 +63,18 @@ users:
     password: md5ed9441016fee39e0b1f8047bc02685a0
     memberof:
     - backup
+
 roles:
   dba:
     options:
     - SUPERUSER
-    member:
+    memberof:
     - opex
     strict: true
   backup:
     options:
     - SUPERUSER
+
+replication_slots:
+  - backup
+  - replica

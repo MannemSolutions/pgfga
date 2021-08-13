@@ -16,7 +16,7 @@ type Database struct {
 	conn       *Conn
 	Owner      string     `yaml:"owner"`
 	Extensions Extensions `yaml:"extensions"`
-	State      string     `yaml:"state"`
+	State      State     `yaml:"state"`
 }
 
 func NewDatabase(handler *Handler, name string, owner string) (d *Database) {
@@ -106,6 +106,10 @@ func (d Database) Create() (err error) {
 		}
 		log.Infof("Altered database owner on '%s' to '%s'", d.name, d.Owner)
 	}
+	err = d.CreateOrDropExtensions()
+	if err != nil {
+		return err
+	}
 	err = ph.GrantRole(d.Owner, "opex")
 	if err != nil {
 		return err
@@ -160,7 +164,7 @@ func (d *Database) AddExtension(name string, schema string, version string) (e *
 
 func (d *Database) CreateOrDropExtensions() (err error) {
 	for _, e := range d.Extensions {
-		if e.State == "present" {
+		if e.State.value {
 			err = e.Create()
 		} else {
 			err = e.Drop()
