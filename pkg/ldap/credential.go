@@ -23,6 +23,10 @@ func isExecutable(filename string) (isExecutable bool, err error) {
 }
 
 func fromExecutable(filename string) (value string, err error) {
+	// The intent is to give an option to use a 3rd party tool to retrieve a password.
+	// Or a script to hash / unhash anyway you like
+	// As such running an arbitrary command set as a parameter is sot of the point.
+	// #nosec
 	out, err := exec.Command(filename).Output()
 	if err != nil {
 		return "", nil
@@ -32,9 +36,15 @@ func fromExecutable(filename string) (value string, err error) {
 
 func fromFile(filename string) (value string, err error) {
 	isExec, err := isExecutable(filename)
+	if err != nil {
+		return "", err
+	}
 	if isExec {
 		return fromExecutable(filename)
 	}
+	// The intent is to give an option to retrieve a password from a file.
+	// As such opening a file which name is set by a variable is sort of the point.
+	// #nosec
 	file, err := os.Open(filename) // For read access.
 	if err != nil {
 		return "", err

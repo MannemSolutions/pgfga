@@ -76,7 +76,10 @@ func (lh Handler) GetMembers(baseDN string, filter string) (baseGroup *Member, e
 				return nil, err
 			}
 			member.AddParent(group)
-			member.SetMType(UserMType)
+			err = member.SetMType(UserMType)
+			if err != nil {
+				return nil, err
+			}
 			log.Debugf("%s: %v", member.Name(), group.Name())
 		}
 	}

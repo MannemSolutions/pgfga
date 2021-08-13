@@ -2,6 +2,8 @@ package pg
 
 import (
 	"context"
+	// md5 is weak, but it is still an accepted password algorithm in Postgres.
+	// #nosec
 	"crypto/md5"
 	"fmt"
 	"github.com/jackc/pgx/v4"
@@ -13,10 +15,10 @@ type Roles map[string]Role
 type Role struct {
 	handler *Handler
 	name    string
-	options []string
+	options RoleOptions
 }
 
-func NewRole(handler *Handler, name string, options []string) (r *Role, err error) {
+func NewRole(handler *Handler, name string, options RoleOptions) (r *Role, err error) {
 	role, exists := handler.roles[name]
 	if exists {
 		log.Debugf("We must make sure that options are added when passed in here")
@@ -91,7 +93,7 @@ func (r Role) Create() (err error) {
 		}
 		log.Infof("Created role '%s'", r.name)
 	}
-	var invalidOptions []string
+	var invalidOptions RoleOptions
 	for _, option := range r.options {
 		err = r.setRoleOption(option)
 		if err == InvalidOption {
@@ -100,22 +102,22 @@ func (r Role) Create() (err error) {
 	}
 	if len(invalidOptions) > 0 {
 		return fmt.Errorf("creating role %s with invalid role options (%s)", r.name,
-			strings.Join(invalidOptions, ", "))
+			invalidOptions.Join(", "))
 	}
 	return nil
 }
 
-func (r Role) setRoleOption(option string) (err error) {
+func (r Role) setRoleOption(option RoleOption) (err error) {
 	c := r.handler.conn
-	option = strings.ToUpper(option)
-	if optionSql, ok := ValidRoleOptions[option]; !ok {
+	optionSql := option.SqlOption()
+	if optionSql != "" {
 		exists, err := c.runQueryExists("SELECT rolname FROM pg_roles WHERE rolname = $1 AND "+optionSql, r.name)
 		if err != nil {
 			return err
 		}
 		if !exists {
 			log.Debugf("setRoleOption ALTER %s with %s", r.name, option)
-			err = c.runQueryExec(fmt.Sprintf("ALTER ROLE %s WITH "+option, identifier(r.name)))
+			err = c.runQueryExec(fmt.Sprintf("ALTER ROLE %s WITH "+option.Name(), identifier(r.name)))
 			if err != nil {
 				return err
 			}
@@ -174,6 +176,7 @@ func (r Role) SetPassword(userName string, password string) (err error) {
 	if len(password) == 35 && strings.HasPrefix(password, "md5") {
 		hashedPassword = password
 	} else {
+		// #nosec
 		hashedPassword = fmt.Sprintf("md5%x", md5.Sum([]byte(password+userName)))
 	}
 	checkQry := `SELECT usename FROM pg_shadow WHERE usename = $1 AND COALESCE(passwd, '') != $2`

@@ -1,21 +1,6 @@
 package pg
 
 var (
-	ValidRoleOptions = map[string]string{"SUPERUSER": "rolsuper",
-		"NOSUPERUSER":   "not rolsuper",
-		"NOCREATEDB":    "not rolcreatedb",
-		"CREATEROLE ":   "rolcreaterole",
-		"NOCREATEROLE":  "not rolcreaterole",
-		"CREATEUSER ":   "rolcreaterole",
-		"NOCREATEUSER":  "not rolcreaterole",
-		"INHERIT ":      "rolinherit",
-		"NOINHERIT":     "not rolinherit",
-		"LOGIN":         "rolcanlogin",
-		"NOLOGIN":       "not rolcanlogin",
-		"REPLICATION":   "rolreplication",
-		"NOREPLICATION": "not rolreplication",
-	}
-
 	ProtectedRoles = map[string]bool{"aq_administrator_role": true,
 		"enterprisedb":              true,
 		"postgres":                  true,
@@ -34,7 +19,7 @@ var (
 		"template1": true,
 	}
 
-	LogonOptions = []string{"LOGON"}
+	LogonOptions = RoleOptions{"LOGON"}
 
-	EmptyOptions []string
+	EmptyOptions RoleOptions
 )

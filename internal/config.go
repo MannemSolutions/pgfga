@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -40,28 +39,9 @@ type FgaUserConfig struct {
 	Password string    `yaml:"password"`
 }
 
-type FgaRoleOptions string
-
-func (opt FgaRoleOptions) Valid() bool {
-	return opt.Name() != ""
-}
-
-func (opt FgaRoleOptions) Name() (name string) {
-	name = strings.ToUpper(string(opt))
-	if _, ok := pg.ValidRoleOptions[name]; ok {
-		return name
-	}
-	return ""
-}
-
-func (opt FgaRoleOptions) SqlOption() (sql string) {
-	sql, _ = pg.ValidRoleOptions[strings.ToUpper(string(opt))]
-	return
-}
-
 type FgaRoles struct {
-	Options  []FgaRoleOptions `yaml:"options"`
-	MemberOf []string         `yaml:"member"`
+	Options  []pg.RoleOption `yaml:"options"`
+	MemberOf []string        `yaml:"member"`
 }
 
 type FgaConfig struct {
@@ -84,6 +64,8 @@ func NewConfig() (config FgaConfig, err error) {
 		return config, err
 	}
 
+	// This only parsed as yaml, nothing else
+	// #nosec
 	yamlConfig, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		return config, err

@@ -56,7 +56,7 @@ func (d *Database) GetDbConnection() (c *Conn) {
 		return d.conn
 	}
 
-	var connParams map[string]string
+	connParams := make(map[string]string)
 	for key, value := range d.handler.conn.connParams {
 		connParams[key] = value
 	}

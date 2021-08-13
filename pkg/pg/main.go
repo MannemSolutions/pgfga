@@ -27,10 +27,10 @@ func identifier(objectName string) (escaped string) {
 	return fmt.Sprintf("\"%s\"", strings.Replace(objectName, "\"", "\"\"", -1))
 }
 
-// quotedSqlValue uses proper quoting for values in SQL queries
-func quotedSqlValue(objectName string) (escaped string) {
-	return fmt.Sprintf("'%s'", strings.Replace(objectName, "'", "''", -1))
-}
+//// quotedSqlValue uses proper quoting for values in SQL queries
+//func quotedSqlValue(objectName string) (escaped string) {
+//	return fmt.Sprintf("'%s'", strings.Replace(objectName, "'", "''", -1))
+//}
 
 // connectStringValue uses proper quoting for connect string values
 func connectStringValue(objectName string) (escaped string) {

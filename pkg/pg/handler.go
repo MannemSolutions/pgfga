@@ -33,7 +33,7 @@ func (ph *Handler) GetDb(dbName string) (d *Database) {
 
 func (ph *Handler) GetRole(roleName string) (d *Role, err error) {
 	// NewDatabase does everything we need to do
-	return NewRole(ph, roleName, []string{})
+	return NewRole(ph, roleName, RoleOptions{})
 }
 
 func (ph *Handler) GrantRole(granteeName string, grantedName string) (err error) {
