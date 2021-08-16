@@ -41,8 +41,8 @@ type FgaUserConfig struct {
 }
 
 type FgaRoleConfig struct {
-	Options  []pg.RoleOption `yaml:"options"`
-	MemberOf []string        `yaml:"member"`
+	Options  []string `yaml:"options"`
+	MemberOf []string `yaml:"member"`
 }
 
 type FgaConfig struct {

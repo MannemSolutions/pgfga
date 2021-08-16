@@ -21,7 +21,9 @@ type Role struct {
 func NewRole(handler *Handler, name string, options RoleOptions) (r *Role, err error) {
 	role, exists := handler.roles[name]
 	if exists {
-		log.Debugf("We must make sure that options are added when passed in here")
+		for _, option := range options {
+			role.options[option.name] = option
+		}
 		return &role, nil
 	}
 	r = &Role{
@@ -70,13 +72,14 @@ func (r *Role) Drop() (err error) {
 		if err != nil {
 			return err
 		}
+		log.Debugf("Reassigned ownership from '%s' to '%s' in db '%s'", r.name, newOwner, dbname)
 	}
 	err = c.runQueryExec("DROP ROLE {}", identifier(r.name))
 	if err != nil {
 		return err
 	}
 	delete(r.handler.roles, r.name)
-	log.Infof("Dropped role '%s'", r.name)
+	log.Infof("Role '%s' succesfully dropped", r.name)
 	return nil
 }
 
@@ -87,43 +90,34 @@ func (r Role) Create() (err error) {
 		return err
 	}
 	if !exists {
-		err = c.runQueryExec(fmt.Sprintf("create role %s", identifier(r.name)))
+		err = c.runQueryExec(fmt.Sprintf("CREATE ROLE %s", identifier(r.name)))
 		if err != nil {
 			return err
 		}
-		log.Infof("Created role '%s'", r.name)
+		log.Infof("Role '%s' succesfully created", r.name)
 	}
-	var invalidOptions RoleOptions
 	for _, option := range r.options {
 		err = r.setRoleOption(option)
-		if err == InvalidOption {
-			invalidOptions = append(invalidOptions, option)
+		if err != nil {
+			return err
 		}
-	}
-	if len(invalidOptions) > 0 {
-		return fmt.Errorf("creating role %s with invalid role options (%s)", r.name,
-			invalidOptions.Join(", "))
 	}
 	return nil
 }
 
 func (r Role) setRoleOption(option RoleOption) (err error) {
 	c := r.handler.conn
-	optionSql := option.SqlOption()
-	if optionSql != "" {
-		exists, err := c.runQueryExists("SELECT rolname FROM pg_roles WHERE rolname = $1 AND "+optionSql, r.name)
+	optionSql := option.Sql()
+	exists, err := c.runQueryExists("SELECT rolname FROM pg_roles WHERE rolname = $1 AND "+optionSql, r.name)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		err = c.runQueryExec(fmt.Sprintf("ALTER ROLE %s WITH "+option.String(), identifier(r.name)))
 		if err != nil {
 			return err
 		}
-		if !exists {
-			log.Debugf("setRoleOption ALTER %s with %s", r.name, option)
-			err = c.runQueryExec(fmt.Sprintf("ALTER ROLE %s WITH "+option.Name(), identifier(r.name)))
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		return InvalidOption
+		log.Debugf("Role '%s' succesfully altered with option '%s'", r.name, option)
 	}
 	return nil
 }
@@ -144,8 +138,10 @@ func (r Role) GrantRole(grantedRole *Role) (err error) {
 		if err != nil {
 			return err
 		}
+		log.Infof("Role '%s' succesfully granted to user '%s'", grantedRole.name, r.name)
+	} else {
+		log.Debugf("Role '%s' already granted to user '%s'", grantedRole.name, r.name)
 	}
-	log.Infof("Granted role '%s' to user '%s'", grantedRole.name, r.name)
 	return nil
 }
 
@@ -165,8 +161,8 @@ func (r Role) RevokeRole(roleName string) (err error) {
 		if err != nil {
 			return err
 		}
+		log.Infof("Role '%s' succesfully revoked from user '%s'", roleName, r.name)
 	}
-	log.Infof("Revoked role '%s' from user '%s'", roleName, r.name)
 	return nil
 }
 
@@ -190,6 +186,7 @@ func (r Role) SetPassword(userName string, password string) (err error) {
 		if err != nil {
 			return err
 		}
+		log.Infof("Succesfully set new password for user '%s'", userName)
 	}
 	return nil
 }
@@ -206,6 +203,7 @@ func (r Role) ResetPassword(userName string) (err error) {
 		if err != nil {
 			return err
 		}
+		log.Infof("Succesfully removed password for user '%s'", userName)
 	}
 	return nil
 }

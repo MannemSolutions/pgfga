@@ -18,8 +18,4 @@ var (
 		"template0": true,
 		"template1": true,
 	}
-
-	LogonOptions = RoleOptions{"LOGON"}
-
-	EmptyOptions RoleOptions
 )

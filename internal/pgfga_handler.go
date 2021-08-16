@@ -48,12 +48,7 @@ func NewPgFgaHandler() (pfh *PgFgaHandler, err error) {
 
 	pfh.ldap = ldap.NewLdapHandler(config.LdapConfig)
 
-	slots := make(pg.ReplicationSlots)
-	for _, slotName := range config.Slots {
-		slot := pg.NewSlot(pfh.pg, slotName)
-		slots[slotName] = *slot
-	}
-	pfh.pg = pg.NewPgHandler(config.PgConfig.Dsn, config.StrictConfig, config.DbsConfig, slots)
+	pfh.pg = pg.NewPgHandler(config.PgConfig.Dsn, config.StrictConfig, config.DbsConfig, config.Slots)
 
 	return pfh, nil
 }
@@ -68,6 +63,10 @@ func (pfh PgFgaHandler) Handle() {
 		log.Fatal(err)
 	}
 	err = pfh.HandleDatabases()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = pfh.HandleSlots()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -86,7 +85,7 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 				return err
 			}
 			for _, ms := range baseGroup.MembershipTree() {
-				_, err := pg.NewRole(pfh.pg, ms.Member.Name(), pg.LogonOptions)
+				_, err := pg.NewRole(pfh.pg, ms.Member.Name(), pg.LoginOptions)
 				if err != nil {
 					return err
 				}
@@ -106,12 +105,13 @@ func (pfh PgFgaHandler) HandleDatabases() (err error) {
 
 func (pfh PgFgaHandler) HandleRoles() (err error) {
 	for roleName, roleConfig := range pfh.config.Roles {
-		var options pg.RoleOptions
+		options := make(pg.RoleOptions)
 		for _, optionName := range roleConfig.Options {
-			option := pg.RoleOption(optionName)
-			if option.Valid() {
-				options = append(options, option)
+			option, err := pg.NewRoleOption(optionName)
+			if err != nil {
+				return err
 			}
+			options[optionName] = option
 		}
 		role, err := pg.NewRole(pfh.pg, roleName, options)
 		if err != nil {
@@ -129,4 +129,7 @@ func (pfh PgFgaHandler) HandleRoles() (err error) {
 		}
 	}
 	return nil
+}
+func (pfh PgFgaHandler) HandleSlots() (err error) {
+	return pfh.pg.CreateOrDropSlots()
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 
-type Databases map[string]Database
+type Databases map[string]*Database
 
 type Database struct {
 	// for DB's created from yaml, handler and name are set by the pg.Handler
@@ -16,17 +16,18 @@ type Database struct {
 	conn       *Conn
 	Owner      string     `yaml:"owner"`
 	Extensions Extensions `yaml:"extensions"`
-	State      State     `yaml:"state"`
+	State      State      `yaml:"state"`
 }
 
 func NewDatabase(handler *Handler, name string, owner string) (d *Database) {
 	db, exists := handler.databases[name]
 	if exists {
-		log.Debugf("We must make sure that the owner is checked here too")
-		return &db
-	}
-	if owner == "" {
-		owner = name
+		if db.Owner != owner {
+			log.Debugf("Warning: DB %s already exists with different owner %s. CHanging to owner %s.", name,
+				db.Owner, owner)
+			db.Owner = owner
+		}
+		return db
 	}
 	d = &Database{
 		handler:    handler,
@@ -34,12 +35,16 @@ func NewDatabase(handler *Handler, name string, owner string) (d *Database) {
 		Owner:      owner,
 		Extensions: make(Extensions),
 	}
-	handler.databases[name] = *d
+	d.SetDefaults()
+	handler.databases[name] = d
 	return d
 }
 
 //SetDefaults is called to set all defaults for databases created from yaml
 func (d *Database) SetDefaults() {
+	if d.Owner == "" {
+		d.Owner = d.name
+	}
 	for name, ext := range d.Extensions {
 		ext.db = d
 		ext.name = name
@@ -78,6 +83,7 @@ func (d Database) Drop() (err error) {
 	if exists {
 		return ph.conn.runQueryExec(fmt.Sprintf("drop database %s", identifier(d.name)))
 	}
+	log.Infof("Database '%s' succesfully dropped", d.name)
 	return nil
 }
 
@@ -93,18 +99,24 @@ func (d Database) Create() (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Created database '%s'", d.name)
+		log.Infof("Database '%s' succesfully created", d.name)
 	}
 	exists, err = ph.conn.runQueryExists("SELECT datname FROM pg_database db inner join pg_roles rol on db.datdba = rol.oid WHERE datname = $1 and rolname = $2", d.name, d.Owner)
 	if err != nil {
 		return err
 	}
 	if !exists {
+		// First make sure role exists
+		_, err = d.handler.GetRole(d.Owner)
+		if err != nil {
+			return err
+		}
+		// Then set owner
 		err = ph.conn.runQueryExec(fmt.Sprintf("ALTER DATABASE %s OWNER TO %s", identifier(d.name), identifier(d.Owner)))
 		if err != nil {
 			return err
 		}
-		log.Infof("Altered database owner on '%s' to '%s'", d.name, d.Owner)
+		log.Infof("Database owner succesfully atered to '%s' on '%s'", d.Owner, d.name)
 	}
 	err = d.CreateOrDropExtensions()
 	if err != nil {
@@ -130,9 +142,11 @@ func (d Database) SetReadOnlyGrants(readOnlyRoleName string) (err error) {
 	}
 	var schema string
 	var schemas []string
-	query := `select distinct schemaname from pg_tableswhere schemaname not in ('pg_catalog','information_schema')
-			  and schemaname||'.'||tablename not in (SELECT table_schema||'.'||table_name 
-              FROM information_schema.role_table_grants WHERE grantee = $1 and privilege_type = 'SELECT')`
+	query := `select distinct schemaname from pg_tables
+              where schemaname not in ('pg_catalog','information_schema')
+			  and schemaname||'.'||tablename not in (SELECT table_schema||'.'||table_name
+                  FROM information_schema.role_table_grants
+                  WHERE grantee = $1 and privilege_type = 'SELECT')`
 	row := c.conn.QueryRow(context.Background(), query, readOnlyRoleName)
 	for {
 		scanErr := row.Scan(&schema)
@@ -149,6 +163,7 @@ func (d Database) SetReadOnlyGrants(readOnlyRoleName string) (err error) {
 		if err != nil {
 			return err
 		}
+		log.Infof("Succesfully granted SELECT ON ALL TABLES in schema '%s' in DB '%s' to '%s'", schema, d.name, readOnlyRoleName)
 	}
 	return nil
 }
@@ -158,7 +173,7 @@ func (d *Database) AddExtension(name string, schema string, version string) (e *
 	if err != nil {
 		return nil, err
 	}
-	d.Extensions[name] = *e
+	d.Extensions[name] = e
 	return e, nil
 }
 

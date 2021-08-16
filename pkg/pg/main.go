@@ -1,6 +1,7 @@
 package pg
 
 import (
+	"errors"
 	"fmt"
 	"go.uber.org/zap"
 	"strings"
@@ -12,7 +13,7 @@ func Initialize(logger *zap.SugaredLogger) {
 	log = logger
 }
 
-var InvalidOption error
+var InvalidOption = errors.New("invalid role option")
 
 type Dsn map[string]string
 

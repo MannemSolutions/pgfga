@@ -23,11 +23,13 @@ strict:
 
 ldap:
   passwordfile: /pgcdfga_config/ldappassword
-  password: pGfGa
+  password:
+    value: pGfGa
   servers:
     - ldap://localhost:389
   userfile: /pgcdfga_config/ldapuser
-  user: cn=admin,dc=pgfga,dc=org
+  user:
+    value: cn=admin,dc=pgfga,dc=org
   conn_retries: 1
 
 postgresql:

@@ -95,6 +95,9 @@ func (m *Member) SetFromId(Id string) (err error) {
 }
 
 func (m *Member) SetMType(mt MemberType) (err error) {
+	if mt == UnknownMType || mt == m.mType {
+		return nil
+	}
 	if m.mType != UnknownMType {
 		return errors.New("cannot set MemberType when already set")
 	}

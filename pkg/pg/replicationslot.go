@@ -5,7 +5,7 @@ type ReplicationSlots map[string]ReplicationSlot
 type ReplicationSlot struct {
 	handler *Handler
 	name    string
-	State   State     `yaml:"state"`
+	State   State `yaml:"state"`
 }
 
 func NewSlot(handler *Handler, name string) (rs *ReplicationSlot) {
@@ -13,9 +13,9 @@ func NewSlot(handler *Handler, name string) (rs *ReplicationSlot) {
 		return &rs
 	}
 	rs = &ReplicationSlot{
-		handler:    handler,
-		name:       name,
-		State:      Present,
+		handler: handler,
+		name:    name,
+		State:   Present,
 	}
 	handler.slots[name] = *rs
 	return rs

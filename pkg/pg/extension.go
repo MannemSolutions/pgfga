@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-type Extensions map[string]Extension
+type Extensions map[string]*Extension
 
 type Extension struct {
 	// name and db are set by the database
@@ -22,7 +22,7 @@ func NewExtension(db *Database, name string, schema string, version string) (e *
 			return nil, fmt.Errorf("db %s already has extension %s defined, with different schema and/or version",
 				db.name, e.name)
 		}
-		return &ext, nil
+		return ext, nil
 	}
 	e = &Extension{
 		db:      db,
@@ -31,7 +31,7 @@ func NewExtension(db *Database, name string, schema string, version string) (e *
 		Version: version,
 		State:   Present,
 	}
-	db.Extensions[name] = *e
+	db.Extensions[name] = e
 	return e, nil
 }
 
@@ -57,14 +57,14 @@ func (e Extension) Drop() (err error) {
 		return err
 	}
 	delete(e.db.Extensions, e.name)
-	log.Infof("Dropped '%s'.'%s'", e.db.name, e.name)
+	log.Infof("Extension '%s'.'%s' succesfully dropped.", e.db.name, e.name)
 	return nil
 }
 
 func (e Extension) Create() (err error) {
 	c := e.db.GetDbConnection()
 	// First let's see if the extension and version is available
-	exists, err := c.runQueryExists("SELECT * FROM pg_available_extensions WHERE name = $1",
+	exists, err := c.runQueryExists("SELECT name FROM pg_available_extensions WHERE name = $1",
 		e.name)
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func (e Extension) Create() (err error) {
 	if !exists {
 		return fmt.Errorf("extension %s is not available", e.name)
 	}
-	exists, err = c.runQueryExists("SELECT * FROM pg_available_extension_versions WHERE name = $1 AND version = $2",
+	exists, err = c.runQueryExists("SELECT name FROM pg_available_extension_versions WHERE name = $1 AND version = $2",
 		e.name, e.Version)
 	if err != nil {
 		return err
@@ -80,7 +80,7 @@ func (e Extension) Create() (err error) {
 	if !exists {
 		return fmt.Errorf("version %s is not available for extension %s", e.Version, e.name)
 	}
-	exists, err = c.runQueryExists("SELECT * FROM pg_extension WHERE name = $1", e.name, e.Version)
+	exists, err = c.runQueryExists("SELECT extname FROM pg_extension WHERE extname = $1", e.name)
 	if err != nil {
 		return err
 	}
@@ -90,13 +90,13 @@ func (e Extension) Create() (err error) {
 			createQry += " SCHEMA " + identifier(e.Schema)
 		}
 		if e.Version != "" {
-			createQry += "VERSION" + identifier(e.Version)
+			createQry += " VERSION " + identifier(e.Version)
 		}
 		err = c.runQueryExec(createQry)
 		if err != nil {
 			return err
 		}
-		log.Infof("Created extension '%s'.'%s'", e.db.name, e.name)
+		log.Infof("Extension '%s'.'%s' succesfully created.", e.db.name, e.name)
 		return nil
 	}
 	if e.Version == "" {
@@ -111,7 +111,7 @@ func (e Extension) Create() (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Updated extension '%s'.'%s' to version '%s'", e.db.name, e.name, e.Version)
+		log.Infof("Extension '%s'.'%s' succesfully updated to version '%s'", e.db.name, e.name, e.Version)
 	}
 	return nil
 }

@@ -1,6 +1,9 @@
 package pg
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // State represents the state of a pg object (Present or Absent)
 type State struct {
@@ -11,12 +14,12 @@ var (
 	// Present means the object should be created
 	Present = State{true}
 	// Absent means the object should be removed
-	Absent  = State{false}
+	Absent = State{false}
 
 	toState = map[string]State{
-		"Present":  Present,
-		"Absent":  Absent,
-		"": Present,
+		"present": Present,
+		"absent":  Absent,
+		"":        Present,
 	}
 )
 
@@ -38,6 +41,7 @@ func (s *State) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal(&str); err != nil {
 		return err
 	}
+	str = strings.ToLower(str)
 	if state, exists := toState[str]; exists {
 		s.value = state.value
 		return nil
