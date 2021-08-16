@@ -36,6 +36,7 @@ type FgaUserConfig struct {
 	BaseDN   string    `yaml:"ldapbasedn"`
 	Filter   string    `yaml:"ldapfilter"`
 	MemberOf []string  `yaml:"memberof"`
+	Options  []string  `yaml:"options"`
 	Expiry   time.Time `yaml:"expiry"`
 	Password string    `yaml:"password"`
 }

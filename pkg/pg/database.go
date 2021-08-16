@@ -116,7 +116,7 @@ func (d Database) Create() (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Database owner succesfully atered to '%s' on '%s'", d.Owner, d.name)
+		log.Infof("Database owner succesfully altered to '%s' on '%s'", d.Owner, d.name)
 	}
 	err = d.CreateOrDropExtensions()
 	if err != nil {

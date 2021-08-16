@@ -166,44 +166,47 @@ func (r Role) RevokeRole(roleName string) (err error) {
 	return nil
 }
 
-func (r Role) SetPassword(userName string, password string) (err error) {
-	c := r.handler.conn
+func (r Role) SetPassword(password string) (err error) {
+	if password == "" {
+		return r.ResetPassword()
+	}
 	var hashedPassword string
 	if len(password) == 35 && strings.HasPrefix(password, "md5") {
 		hashedPassword = password
 	} else {
 		// #nosec
-		hashedPassword = fmt.Sprintf("md5%x", md5.Sum([]byte(password+userName)))
+		hashedPassword = fmt.Sprintf("md5%x", md5.Sum([]byte(password+r.name)))
 	}
+	c := r.handler.conn
 	checkQry := `SELECT usename FROM pg_shadow WHERE usename = $1 AND COALESCE(passwd, '') != $2`
-	exists, err := c.runQueryExists(checkQry, userName, hashedPassword)
+	exists, err := c.runQueryExists(checkQry, r.name, hashedPassword)
 	if err != nil {
 		return err
 	}
 	if !exists {
-		err = c.runQueryExec(fmt.Sprintf("ALTER USER %s WITH ENCRYPTED PASSWORD $1", identifier(userName)),
-			hashedPassword)
+		err = c.runQueryExec(fmt.Sprintf("ALTER USER %s WITH ENCRYPTED PASSWORD %s", identifier(r.name),
+			quotedSqlValue(hashedPassword)))
 		if err != nil {
 			return err
 		}
-		log.Infof("Succesfully set new password for user '%s'", userName)
+		log.Infof("Succesfully set new password for user '%s'", r.name)
 	}
 	return nil
 }
-func (r Role) ResetPassword(userName string) (err error) {
+func (r Role) ResetPassword() (err error) {
 	c := r.handler.conn
 	checkQry := `SELECT usename FROM pg_shadow WHERE usename = $1
 	AND Passwd IS NOT NULL AND usename != CURRENT_USER`
-	exists, err := c.runQueryExists(checkQry, userName)
+	exists, err := c.runQueryExists(checkQry, r.name)
 	if err != nil {
 		return err
 	}
 	if exists {
-		err = c.runQueryExec(fmt.Sprintf("ALTER USER %s WITH PASSWORD NULL", identifier(userName)))
+		err = c.runQueryExec(fmt.Sprintf("ALTER USER %s WITH PASSWORD NULL", identifier(r.name)))
 		if err != nil {
 			return err
 		}
-		log.Infof("Succesfully removed password for user '%s'", userName)
+		log.Infof("Succesfully removed password for user '%s'", r.name)
 	}
 	return nil
 }

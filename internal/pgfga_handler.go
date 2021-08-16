@@ -74,6 +74,14 @@ func (pfh PgFgaHandler) Handle() {
 
 func (pfh PgFgaHandler) HandleUsers() (err error) {
 	for userName, userConfig := range pfh.config.UserConfig {
+		options := make(pg.RoleOptions)
+		for _, optionName := range userConfig.Options {
+			option, err := pg.NewRoleOption(optionName)
+			if err != nil {
+				return err
+			}
+			options[optionName] = option
+		}
 		switch userConfig.Auth {
 		case "ldap-group":
 			log.Debugf("Configuring role from ldap for %s", userName)
@@ -84,8 +92,16 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 			if err != nil {
 				return err
 			}
+			baseRole, err := pg.NewRole(pfh.pg, baseGroup.Name(), options)
+			if err != nil {
+				return err
+			}
+			err = baseRole.ResetPassword()
+			if err != nil {
+				return err
+			}
 			for _, ms := range baseGroup.MembershipTree() {
-				_, err := pg.NewRole(pfh.pg, ms.Member.Name(), pg.LoginOptions)
+				_, err = pg.NewRole(pfh.pg, ms.Member.Name(), pg.LoginOptions)
 				if err != nil {
 					return err
 				}
@@ -94,6 +110,44 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 					return err
 				}
 			}
+		case "ldap-user":
+			log.Debugf("Configuring user with ldap authentication for %s", userName)
+			options.AddOption(pg.LoginOption)
+			user, err := pg.NewRole(pfh.pg, userName, options)
+			if err != nil {
+				return err
+			}
+			err = user.ResetPassword()
+			if err != nil {
+				return err
+			}
+			for _, granted := range userConfig.MemberOf {
+				err := pfh.pg.GrantRole(userName, granted)
+				if err != nil {
+					return err
+				}
+			}
+		case "clientcert":
+			user, err := pg.NewRole(pfh.pg, userName, options)
+			if err != nil {
+				return err
+			}
+			err = user.ResetPassword()
+			if err != nil {
+				return err
+			}
+		case "password", "md5":
+			user, err := pg.NewRole(pfh.pg, userName, options)
+			if err != nil {
+				return err
+			}
+			// Note: if no password is set, it will be reset...
+			err = user.SetPassword(userConfig.Password)
+			if err != nil {
+				return err
+			}
+		default:
+			log.Fatalf("Invalid auth %s for user %s", userConfig.Auth, userName)
 		}
 	}
 	return nil

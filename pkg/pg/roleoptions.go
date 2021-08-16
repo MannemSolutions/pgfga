@@ -93,6 +93,10 @@ func (opt *RoleOption) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 type RoleOptions map[string]RoleOption
 
+func (ro RoleOptions) AddOption(opt RoleOption) {
+	ro[opt.name] = opt
+}
+
 //func (ros RoleOptions)Join(sep string) (joined string) {
 //	var strOptions []string
 //	for _, option := range ros {
@@ -102,7 +106,7 @@ type RoleOptions map[string]RoleOption
 //}
 
 var (
-	loginOption, _ = NewRoleOption("LOGIN")
-	LoginOptions   = RoleOptions{loginOption.name: loginOption}
+	LoginOption, _ = NewRoleOption("LOGIN")
+	LoginOptions   = RoleOptions{LoginOption.name: LoginOption}
 	//EmptyOptions RoleOptions
 )
