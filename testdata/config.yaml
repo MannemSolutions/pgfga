@@ -41,7 +41,7 @@ postgresql:
 
 databases:
   sebas:
-    state: present
+    state: absent
     extensions:
       pg_stat_statements:
         schema: public
@@ -60,6 +60,7 @@ users:
     expiry: 2018-02-24
     memberof:
     - dba
+    state: Absent
   backup_user:
     auth: password
     password: md5ed9441016fee39e0b1f8047bc02685a0

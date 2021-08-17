@@ -43,7 +43,7 @@ func (ph *Handler) GetDb(dbName string) (d *Database) {
 
 func (ph *Handler) GetRole(roleName string) (d *Role, err error) {
 	// NewDatabase does everything we need to do
-	return NewRole(ph, roleName, RoleOptions{})
+	return NewRole(ph, roleName, RoleOptions{}, Present)
 }
 
 func (ph *Handler) GrantRole(granteeName string, grantedName string) (err error) {
@@ -60,7 +60,7 @@ func (ph *Handler) GrantRole(granteeName string, grantedName string) (err error)
 }
 func (ph *Handler) CreateOrDropDatabases() (err error) {
 	for _, d := range ph.databases {
-		if d.State.value {
+		if d.State.Bool() {
 			err = d.Create()
 		} else {
 			err = d.Drop()
@@ -74,7 +74,7 @@ func (ph *Handler) CreateOrDropDatabases() (err error) {
 
 func (ph *Handler) CreateOrDropSlots() (err error) {
 	for _, d := range ph.slots {
-		if d.State.value {
+		if d.State.Bool() {
 			err = d.Create()
 		} else {
 			err = d.Drop()

@@ -92,7 +92,7 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 			if err != nil {
 				return err
 			}
-			baseRole, err := pg.NewRole(pfh.pg, baseGroup.Name(), options)
+			baseRole, err := pg.NewRole(pfh.pg, baseGroup.Name(), options, userConfig.State)
 			if err != nil {
 				return err
 			}
@@ -101,7 +101,7 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 				return err
 			}
 			for _, ms := range baseGroup.MembershipTree() {
-				_, err = pg.NewRole(pfh.pg, ms.Member.Name(), pg.LoginOptions)
+				_, err = pg.NewRole(pfh.pg, ms.Member.Name(), pg.LoginOptions, userConfig.State)
 				if err != nil {
 					return err
 				}
@@ -113,7 +113,7 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 		case "ldap-user":
 			log.Debugf("Configuring user with ldap authentication for %s", userName)
 			options.AddOption(pg.LoginOption)
-			user, err := pg.NewRole(pfh.pg, userName, options)
+			user, err := pg.NewRole(pfh.pg, userName, options, userConfig.State)
 			if err != nil {
 				return err
 			}
@@ -121,14 +121,17 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 			if err != nil {
 				return err
 			}
-			for _, granted := range userConfig.MemberOf {
-				err := pfh.pg.GrantRole(userName, granted)
-				if err != nil {
-					return err
+			if userConfig.State.Bool() {
+				for _, granted := range userConfig.MemberOf {
+					err := pfh.pg.GrantRole(userName, granted)
+					if err != nil {
+						return err
+					}
 				}
 			}
 		case "clientcert":
-			user, err := pg.NewRole(pfh.pg, userName, options)
+			options.AddOption(pg.LoginOption)
+			user, err := pg.NewRole(pfh.pg, userName, options, userConfig.State)
 			if err != nil {
 				return err
 			}
@@ -137,7 +140,8 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 				return err
 			}
 		case "password", "md5":
-			user, err := pg.NewRole(pfh.pg, userName, options)
+			options.AddOption(pg.LoginOption)
+			user, err := pg.NewRole(pfh.pg, userName, options, userConfig.State)
 			if err != nil {
 				return err
 			}
@@ -167,7 +171,7 @@ func (pfh PgFgaHandler) HandleRoles() (err error) {
 			}
 			options[optionName] = option
 		}
-		role, err := pg.NewRole(pfh.pg, roleName, options)
+		role, err := pg.NewRole(pfh.pg, roleName, options, roleConfig.State)
 		if err != nil {
 			return err
 		}

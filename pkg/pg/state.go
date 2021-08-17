@@ -5,16 +5,22 @@ import (
 	"strings"
 )
 
+const (
+	stateUnknown = iota
+	statePresent
+	stateAbsent
+)
+
 // State represents the state of a pg object (Present or Absent)
 type State struct {
-	value bool
+	value int
 }
 
 var (
 	// Present means the object should be created
-	Present = State{true}
+	Present = State{statePresent}
 	// Absent means the object should be removed
-	Absent = State{false}
+	Absent = State{stateAbsent}
 
 	toState = map[string]State{
 		"present": Present,
@@ -24,10 +30,17 @@ var (
 )
 
 func (s State) String() string {
-	if s.value {
-		return "Present"
+	if s.value == stateAbsent {
+		return "Absent"
 	}
-	return "Absent"
+	return "Present"
+}
+
+func (s State) Bool() bool {
+	if s.value == stateAbsent {
+		return false
+	}
+	return true
 }
 
 // MarshalYAML marshals the enum as a quoted json string

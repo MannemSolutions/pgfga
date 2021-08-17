@@ -72,7 +72,7 @@ func (d *Database) GetDbConnection() (c *Conn) {
 
 func (d Database) Drop() (err error) {
 	ph := d.handler
-	if ph.strictOptions.Users {
+	if ! ph.strictOptions.Databases {
 		log.Infof("skipping drop of database %s (not running with strict option for databases", d.name)
 		return nil
 	}
@@ -81,9 +81,13 @@ func (d Database) Drop() (err error) {
 		return err
 	}
 	if exists {
-		return ph.conn.runQueryExec(fmt.Sprintf("drop database %s", identifier(d.name)))
+		err = ph.conn.runQueryExec(fmt.Sprintf("drop database %s", identifier(d.name)))
+		if err != nil {
+			return err
+		}
+		log.Infof("Database '%s' succesfully dropped", d.name)
 	}
-	log.Infof("Database '%s' succesfully dropped", d.name)
+	d.State = Absent
 	return nil
 }
 
@@ -179,7 +183,7 @@ func (d *Database) AddExtension(name string, schema string, version string) (e *
 
 func (d *Database) CreateOrDropExtensions() (err error) {
 	for _, e := range d.Extensions {
-		if e.State.value {
+		if e.State.Bool() {
 			err = e.Create()
 		} else {
 			err = e.Drop()

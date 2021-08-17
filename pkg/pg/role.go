@@ -16,11 +16,19 @@ type Role struct {
 	handler *Handler
 	name    string
 	options RoleOptions
+	State   State
 }
 
-func NewRole(handler *Handler, name string, options RoleOptions) (r *Role, err error) {
+func NewRole(handler *Handler, name string, options RoleOptions, state State) (r *Role, err error) {
 	role, exists := handler.roles[name]
 	if exists {
+		if role.State.Bool() != state.Bool() {
+			if handler.strictOptions.Users {
+				return r, fmt.Errorf("cannot change state from %s to %s for existing role %s", state.String(),
+					role.State.String(), name)
+			}
+			state = Present
+		}
 		for _, option := range options {
 			role.options[option.name] = option
 		}
@@ -30,8 +38,13 @@ func NewRole(handler *Handler, name string, options RoleOptions) (r *Role, err e
 		handler: handler,
 		name:    name,
 		options: options,
+		State: state,
 	}
-	err = r.Create()
+	if state.Bool() {
+		err = r.Create()
+	} else {
+		err = r.Drop()
+	}
 	if err != nil {
 		return r, err
 	}
@@ -42,7 +55,7 @@ func NewRole(handler *Handler, name string, options RoleOptions) (r *Role, err e
 func (r *Role) Drop() (err error) {
 	ph := r.handler
 	c := ph.conn
-	if !ph.strictOptions.Users {
+	if ! ph.strictOptions.Users {
 		log.Infof("not dropping user/role %s (config.strict.roles is not True)", r.name)
 		return nil
 	}
@@ -68,17 +81,17 @@ func (r *Role) Drop() (err error) {
 			return fmt.Errorf("error getting ReadOnly grants (qry: %s, err %s)", query, err)
 		}
 		dbConn := ph.GetDb(dbname).GetDbConnection()
-		err = dbConn.runQueryExec("REASSIGN OWNED BY {} TO {}", identifier(r.name), identifier(newOwner))
+		err = dbConn.runQueryExec(fmt.Sprintf("REASSIGN OWNED BY %s TO %s", identifier(r.name), identifier(newOwner)))
 		if err != nil {
 			return err
 		}
 		log.Debugf("Reassigned ownership from '%s' to '%s' in db '%s'", r.name, newOwner, dbname)
 	}
-	err = c.runQueryExec("DROP ROLE {}", identifier(r.name))
+	err = c.runQueryExec(fmt.Sprintf("DROP ROLE %s", identifier(r.name)))
 	if err != nil {
 		return err
 	}
-	delete(r.handler.roles, r.name)
+	r.State = Absent
 	log.Infof("Role '%s' succesfully dropped", r.name)
 	return nil
 }
@@ -178,12 +191,14 @@ func (r Role) SetPassword(password string) (err error) {
 		hashedPassword = fmt.Sprintf("md5%x", md5.Sum([]byte(password+r.name)))
 	}
 	c := r.handler.conn
-	checkQry := `SELECT usename FROM pg_shadow WHERE usename = $1 AND COALESCE(passwd, '') != $2`
+	checkQry := `SELECT rolname FROM pg_roles where rolname = $1
+			     and rolname not in (select usename from pg_shadow WHERE usename = $1
+					 AND COALESCE(passwd, '') = $2);`
 	exists, err := c.runQueryExists(checkQry, r.name, hashedPassword)
 	if err != nil {
 		return err
 	}
-	if !exists {
+	if exists {
 		err = c.runQueryExec(fmt.Sprintf("ALTER USER %s WITH ENCRYPTED PASSWORD %s", identifier(r.name),
 			quotedSqlValue(hashedPassword)))
 		if err != nil {

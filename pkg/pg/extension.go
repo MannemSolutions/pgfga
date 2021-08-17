@@ -56,7 +56,7 @@ func (e Extension) Drop() (err error) {
 	if err != nil {
 		return err
 	}
-	delete(e.db.Extensions, e.name)
+	e.State = Absent
 	log.Infof("Extension '%s'.'%s' succesfully dropped.", e.db.name, e.name)
 	return nil
 }

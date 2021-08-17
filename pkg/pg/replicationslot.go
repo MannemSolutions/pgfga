@@ -23,7 +23,7 @@ func NewSlot(handler *Handler, name string) (rs *ReplicationSlot) {
 
 func (rs ReplicationSlot) Drop() (err error) {
 	ph := rs.handler
-	if ph.strictOptions.Slots {
+	if ! ph.strictOptions.Slots {
 		log.Infof("skipping drop of replication slot %s (not running with strict option for slots", rs.name)
 		return nil
 	}
@@ -32,7 +32,11 @@ func (rs ReplicationSlot) Drop() (err error) {
 		return err
 	}
 	if exists {
-		return ph.conn.runQueryExec("SELECT pg_drop_physical_replication_slot($1)", rs.name)
+		err = ph.conn.runQueryExec("SELECT pg_drop_physical_replication_slot($1)", rs.name)
+		if err != nil {
+			return err
+		}
+		log.Infof("Replication slot '%s' succesfully dropped", rs.name)
 	}
 	return nil
 }

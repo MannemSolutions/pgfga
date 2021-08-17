@@ -39,11 +39,13 @@ type FgaUserConfig struct {
 	Options  []string  `yaml:"options"`
 	Expiry   time.Time `yaml:"expiry"`
 	Password string    `yaml:"password"`
+	State    pg.State  `yaml:"state"`
 }
 
 type FgaRoleConfig struct {
 	Options  []string `yaml:"options"`
 	MemberOf []string `yaml:"member"`
+	State    pg.State `yaml:"state"`
 }
 
 type FgaConfig struct {
