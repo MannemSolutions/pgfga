@@ -28,4 +28,5 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_PASSWORD: pgfga
+      POSTGRES_HOST_AUTH_METHOD: 'ldap ldapserver=ldap ldapprefix="uid=" ldapsuffix=",ou=users,dc=pgfga,dc=org"'
+      POSTGRES_PASSWORD: not_this_but_in_ldap

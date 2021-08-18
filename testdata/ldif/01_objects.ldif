@@ -95,7 +95,7 @@ shadowmax: 0
 shadowwarning: 0
 uid: adam
 uidnumber: 16859
-userpassword: {crypt}x
+userpassword: {SSHA}dncRaIbIxK78NqS/pMqD+BhdAX1ssCeY
 
 # Entry 11: uid=eve,ou=users,dc=pgfga,dc=org
 dn: uid=eve,ou=users,dc=pgfga,dc=org
@@ -113,7 +113,7 @@ shadowmax: 0
 shadowwarning: 0
 uid: eve
 uidnumber: 16860
-userpassword: {crypt}x
+userpassword: {SSHA}al3+/zNYE46/MuB5jjmbiz+wZyBT2hYb
 
 # Entry 12: uid=snake,ou=users,dc=pgfga,dc=org
 dn: uid=snake,ou=users,dc=pgfga,dc=org
@@ -131,5 +131,23 @@ shadowmax: 0
 shadowwarning: 0
 uid: snake
 uidnumber: 16861
-userpassword: {crypt}x
+userpassword: {SSHA}rmEHLw+3bkk2jzz/vKqqbf2ATNhUcUdv
+
+# Entry 13: uid=postgres,ou=users,dc=pgfga,dc=org
+dn: uid=postgres,ou=users,dc=pgfga,dc=org
+cn: postgres
+gecos: postgres
+gidnumber: 103
+homedirectory: /home/postgres
+loginshell: /bin/bash
+objectclass: top
+objectclass: account
+objectclass: posixAccount
+objectclass: shadowAccount
+shadowlastchange: 0
+shadowmax: 0
+shadowwarning: 0
+uid: snake
+uidnumber: 16862
+userpassword: {SSHA}7/8MIYNnLGat90Vog9L/Wba4gOrOED/z
 
