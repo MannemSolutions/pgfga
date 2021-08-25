@@ -30,3 +30,9 @@ services:
     environment:
       POSTGRES_HOST_AUTH_METHOD: 'ldap ldapserver=ldap ldapprefix="uid=" ldapsuffix=",ou=users,dc=pgfga,dc=org"'
       POSTGRES_PASSWORD: not_this_but_in_ldap
+  pgtester:
+    image: mannemsolutions/pgtester
+  pgfga:
+    build: .
+    environment:
+      PGFGACONFIG: /etc/pgfga/config.yaml

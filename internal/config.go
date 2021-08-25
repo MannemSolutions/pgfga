@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"flag"
+	"fmt"
 	"github.com/mannemsolutions/pgfga/pkg/ldap"
 	"github.com/mannemsolutions/pgfga/pkg/pg"
 	"go.uber.org/zap/zapcore"
@@ -18,7 +20,7 @@ import (
 
 const (
 	envConfName     = "PGFGACONFIG"
-	defaultConfFile = "./pgfgaconfig.yaml"
+	defaultConfFile = "/etc/pgfga/config.yaml"
 )
 
 type FgaGeneralConfig struct {
@@ -60,7 +62,18 @@ type FgaConfig struct {
 }
 
 func NewConfig() (config FgaConfig, err error) {
-	configFile := os.Getenv(envConfName)
+	var configFile string
+	var debug bool
+	var version bool
+	flag.BoolVar(&debug, "d", false, "Add debugging output")
+	flag.BoolVar(&version, "v", false, "Show version information")
+	flag.StringVar(&configFile, "c", os.Getenv(envConfName), "Path to configfile")
+
+	flag.Parse()
+	if version {
+		fmt.Println(appVersion)
+		os.Exit(0)
+	}
 	if configFile == "" {
 		configFile = defaultConfFile
 	}
@@ -76,5 +89,6 @@ func NewConfig() (config FgaConfig, err error) {
 		return config, err
 	}
 	err = yaml.Unmarshal(yamlConfig, &config)
+        config.GeneralConfig.Debug = config.GeneralConfig.Debug || debug
 	return config, err
 }

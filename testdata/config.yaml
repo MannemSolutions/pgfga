@@ -22,31 +22,27 @@ strict:
   databases: True
 
 ldap:
-  passwordfile: /pgcdfga_config/ldappassword
   password:
     value: pGfGa
   servers:
-    - ldap://localhost:389
-  userfile: /pgcdfga_config/ldapuser
+    - ldap://ldap:389
   user:
     value: cn=admin,dc=pgfga,dc=org
   conn_retries: 1
 
 postgresql:
   dsn:
-    host: 127.0.0.1
+    host: postgres
     user: postgres
     connect_timeout: 10
     password: postgres
 
 databases:
-  sebas:
-    state: absent
+  fga:
     extensions:
       pg_stat_statements:
         schema: public
         version: 1.5
-        state: present
 
 users:
   dbateam:
@@ -55,15 +51,16 @@ users:
     ldapfilter: '(objectclass=*)'
     memberof:
     - opex
-  smannem:
+  dbauser:
     auth: ldap-user
     expiry: 2018-02-24
     memberof:
     - dba
-    state: Absent
+    options:
+    - SUPERUSER
   backup_user:
     auth: password
-    password: md5ed9441016fee39e0b1f8047bc02685a0
+    password: bckpa$$w0rd
     memberof:
     - backup
 
