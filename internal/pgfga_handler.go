@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"os"
+	"time"
 )
 
 var (
@@ -48,12 +49,14 @@ func NewPgFgaHandler() (pfh *PgFgaHandler, err error) {
 
 	pfh.ldap = ldap.NewLdapHandler(config.LdapConfig)
 
-	pfh.pg = pg.NewPgHandler(config.PgConfig.Dsn, config.StrictConfig, config.DbsConfig, config.Slots)
+	pfh.pg = pg.NewPgHandler(config.PgDsn, config.StrictConfig, config.DbsConfig, config.Slots)
 
 	return pfh, nil
 }
 
 func (pfh PgFgaHandler) Handle() {
+	time.Sleep(pfh.config.GeneralConfig.RunDelay)
+
 	err := pfh.HandleRoles()
 	if err != nil {
 		log.Fatal(err)
@@ -110,8 +113,8 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 					return err
 				}
 			}
-		case "ldap-user":
-			log.Debugf("Configuring user with ldap authentication for %s", userName)
+		case "ldap-user", "clientcert":
+			log.Debugf("Configuring user %s with %s", userName, userConfig.Auth)
 			options.AddOption(pg.LoginOption)
 			user, err := pg.NewRole(pfh.pg, userName, options, userConfig.State)
 			if err != nil {
@@ -129,16 +132,6 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 					}
 				}
 			}
-		case "clientcert":
-			options.AddOption(pg.LoginOption)
-			user, err := pg.NewRole(pfh.pg, userName, options, userConfig.State)
-			if err != nil {
-				return err
-			}
-			err = user.ResetPassword()
-			if err != nil {
-				return err
-			}
 		case "password", "md5":
 			options.AddOption(pg.LoginOption)
 			user, err := pg.NewRole(pfh.pg, userName, options, userConfig.State)
@@ -147,6 +140,10 @@ func (pfh PgFgaHandler) HandleUsers() (err error) {
 			}
 			// Note: if no password is set, it will be reset...
 			err = user.SetPassword(userConfig.Password)
+			if err != nil {
+				return err
+			}
+			err = user.SetExpiry(userConfig.Expiry)
 			if err != nil {
 				return err
 			}

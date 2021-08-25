@@ -15,7 +15,7 @@
 ---
 general:
   loglevel: debug
-  run_delay: -1
+  run_delay: 1s
 
 strict:
   users: True
@@ -30,12 +30,11 @@ ldap:
     value: cn=admin,dc=pgfga,dc=org
   conn_retries: 1
 
-postgresql:
-  dsn:
-    host: postgres
-    user: postgres
-    connect_timeout: 10
-    password: postgres
+postgresql_dsn:
+  host: postgres
+  user: postgres
+  connect_timeout: 10
+  password: postgres
 
 databases:
   fga:
@@ -53,12 +52,12 @@ users:
     - opex
   dbauser:
     auth: ldap-user
-    expiry: 2018-02-24
     memberof:
     - dba
     options:
     - SUPERUSER
   backup_user:
+    expiry: 2022-01-01
     auth: password
     password: bckpa$$w0rd
     memberof:

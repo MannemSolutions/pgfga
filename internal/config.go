@@ -25,12 +25,8 @@ const (
 
 type FgaGeneralConfig struct {
 	LogLevel zapcore.Level `yaml:"loglevel"`
-	RunDelay int           `yaml:"run_delay"`
+	RunDelay time.Duration `yaml:"run_delay"`
 	Debug    bool          `yaml:"debug"`
-}
-
-type FgaPostgresConfig struct {
-	Dsn pg.Dsn `yaml:"dsn"`
 }
 
 type FgaUserConfig struct {
@@ -54,7 +50,7 @@ type FgaConfig struct {
 	GeneralConfig FgaGeneralConfig         `yaml:"general"`
 	StrictConfig  pg.StrictOptions         `yaml:"strict"`
 	LdapConfig    ldap.Config              `yaml:"ldap"`
-	PgConfig      FgaPostgresConfig        `yaml:"postgresql"`
+	PgDsn         pg.Dsn                   `yaml:"postgresql_dsn"`
 	DbsConfig     pg.Databases             `yaml:"databases"`
 	UserConfig    map[string]FgaUserConfig `yaml:"users"`
 	Roles         map[string]FgaRoleConfig `yaml:"roles"`

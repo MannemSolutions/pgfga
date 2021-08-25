@@ -2,6 +2,8 @@ package pg
 
 import (
 	"context"
+	"time"
+
 	// md5 is weak, but it is still an accepted password algorithm in Postgres.
 	// #nosec
 	"crypto/md5"
@@ -199,7 +201,7 @@ func (r Role) SetPassword(password string) (err error) {
 		return err
 	}
 	if exists {
-		err = c.runQueryExec(fmt.Sprintf("ALTER USER %s WITH ENCRYPTED PASSWORD %s", identifier(r.name),
+		err = c.runQueryExec(fmt.Sprintf("ALTER ROLE %s WITH ENCRYPTED PASSWORD %s", identifier(r.name),
 			quotedSqlValue(hashedPassword)))
 		if err != nil {
 			return err
@@ -208,6 +210,7 @@ func (r Role) SetPassword(password string) (err error) {
 	}
 	return nil
 }
+
 func (r Role) ResetPassword() (err error) {
 	c := r.handler.conn
 	checkQry := `SELECT usename FROM pg_shadow WHERE usename = $1
@@ -224,4 +227,45 @@ func (r Role) ResetPassword() (err error) {
 		log.Infof("Succesfully removed password for user '%s'", r.name)
 	}
 	return nil
+}
+
+func (r Role) SetExpiry(expiry time.Time) (err error) {
+	if expiry.IsZero() {
+		return r.ResetExpiry()
+	}
+	formattedExpiry := expiry.Format(time.RFC3339)
+
+	c := r.handler.conn
+	checkQry := `SELECT rolname FROM pg_roles where rolname = $1 AND (rolvaliduntil IS NULL OR rolvaliduntil != $2);`
+	exists, err := c.runQueryExists(checkQry, r.name, formattedExpiry)
+	if err != nil {
+		return err
+	}
+	if exists {
+		err = c.runQueryExec(fmt.Sprintf("ALTER ROLE %s VALID UNTIL %s", identifier(r.name),
+			quotedSqlValue(formattedExpiry)))
+		if err != nil {
+			return err
+		}
+		log.Infof("Succesfully set new expiry for user '%s'", r.name)
+	}
+	return nil
+}
+
+func (r Role) ResetExpiry() (err error) {
+	c := r.handler.conn
+	checkQry := `SELECT rolname FROM pg_roles where rolname = $1 AND rolvaliduntil IS NOT NULL AND rolvaliduntil != 'infinity';`
+	exists, err := c.runQueryExists(checkQry, r.name)
+	if err != nil {
+		return err
+	}
+	if exists {
+		err = c.runQueryExec(fmt.Sprintf("ALTER ROLE %s VALID UNTIL 'infinity'", identifier(r.name)))
+		if err != nil {
+			return err
+		}
+		log.Infof("Succesfully reset expiry for user '%s'", r.name)
+	}
+	return nil
+
 }
