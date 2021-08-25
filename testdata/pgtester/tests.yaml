@@ -1,0 +1,50 @@
+---
+dsn:
+  host: postgres
+  port: 5432
+  user: postgres
+  password: postgres
+
+retries: 5
+delay: 1s
+debug: false
+
+tests:
+- name: Check for database fga
+  query: "select count(*) total from pg_database where datname = 'fga'"
+  results:
+  - total: 1
+- name: backup_user, adam, eve, and gurus should exists ; snake should not
+  query: "select usename from pg_user where usename in ('backup_user', 'adam', 'eve', 'gurus', 'snake') order by 1"
+  results:
+  - usename: adam
+  - usename: backup_user
+  - usename: eve
+  - usename: gurus
+- name: Check for roles dba and backup with superuser role and cannot login
+  query: "select rolname from pg_roles where rolname in ('dba','backup') and rolsuper and not rolcanlogin order by 1;"
+  results:
+  - rolname: backup
+  - rolname: dba
+- name: Check for replication slots
+  query: "select slot_name from pg_replication_slots where slot_name in ('backup', 'replica') order by 1;"
+  results:
+  - slot_name: backup
+  - slot_name: replica
+---
+dsn:
+  host: postgres
+  port: 5432
+  user: postgres
+  password: postgres
+  dbname: fga
+
+retries: 5
+delay: 1s
+debug: false
+
+tests:
+- name: Check for extension pg_stat_statements database fga
+  query: "select extname from pg_extension where extname = 'pg_stat_statements' and extversion = '1.5';"
+  results:
+  - extname: pg_stat_statements

@@ -22,56 +22,59 @@ strict:
   databases: True
 
 ldap:
-  basedn: 'OU=pro,DC=example,DC=com'
-  passwordfile: /pgcdfga_config/ldappassword
+  password:
+    value: pGfGa
   servers:
-    - ldap1.example.com
-  userfile: /pgcdfga_config/ldapuser
+    - ldap://ldap:389
+  user:
+    value: cn=admin,dc=pgfga,dc=org
   conn_retries: 1
 
 postgresql:
   dsn:
-    host: 172.17.0.2
-    user: pgcdfga
+    host: postgres
+    user: postgres
     connect_timeout: 10
-    sslcert: /pgcdfga_config/client_pgcdfga_chain.pem
-    sslkey: /pgcdfga_config/client_pgcdfga.key
-    sslrootcert: /pgcdfga_config/serverca.pem
-    sslmode: verify-ca
+    password: postgres
 
 databases:
-  sebas:
-    state: present
+  fga:
     extensions:
       pg_stat_statements:
         schema: public
         version: 1.5
-        state: present
 
 users:
   dbateam:
     auth: ldap-group
-    ldapbasedn: 'OU=pro,DC=example,DC=com'
-    ldapfilter: '(&(cn=team1)(!(cn=*-gon))(!(cn=*-goun)))'
+    ldapbasedn: 'cn=dba,ou=groups,dc=pgfga,dc=org'
+    ldapfilter: '(objectclass=*)'
     memberof:
     - opex
-  smannem:
+  dbauser:
     auth: ldap-user
     expiry: 2018-02-24
     memberof:
     - dba
+    options:
+    - SUPERUSER
   backup_user:
     auth: password
-    password: md5ed9441016fee39e0b1f8047bc02685a0
+    password: bckpa$$w0rd
     memberof:
     - backup
+
 roles:
   dba:
     options:
     - SUPERUSER
-    member:
+    memberof:
     - opex
     strict: true
   backup:
     options:
     - SUPERUSER
+
+replication_slots:
+  - backup
+  - replica
