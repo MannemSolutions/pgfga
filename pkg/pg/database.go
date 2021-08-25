@@ -70,7 +70,7 @@ func (d *Database) GetDbConnection() (c *Conn) {
 	return d.conn
 }
 
-func (d Database) Drop() (err error) {
+func (d *Database) Drop() (err error) {
 	ph := d.handler
 	if ! ph.strictOptions.Databases {
 		log.Infof("skipping drop of database %s (not running with strict option for databases", d.name)

@@ -35,7 +35,7 @@ func NewExtension(db *Database, name string, schema string, version string) (e *
 	return e, nil
 }
 
-func (e Extension) Drop() (err error) {
+func (e *Extension) Drop() (err error) {
 	ph := e.db.handler
 	c := e.db.GetDbConnection()
 	if !e.db.handler.strictOptions.Extensions {

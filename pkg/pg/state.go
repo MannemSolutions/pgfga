@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	stateUnknown = iota
-	statePresent
+	statePresent = iota
 	stateAbsent
 )
 
@@ -37,10 +36,7 @@ func (s State) String() string {
 }
 
 func (s State) Bool() bool {
-	if s.value == stateAbsent {
-		return false
-	}
-	return true
+	return s.value != stateAbsent
 }
 
 // MarshalYAML marshals the enum as a quoted json string
