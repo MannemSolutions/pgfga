@@ -99,19 +99,36 @@ func (e Extension) Create() (err error) {
 		log.Infof("Extension '%s'.'%s' succesfully created.", e.db.name, e.name)
 		return nil
 	}
-	if e.Version == "" {
-		return nil
-	}
-	currentVersion, err := c.runQueryGetOneField("SELECT extversion FROM pg_extension WHERE extname = $1", e.name)
-	if err != nil {
-		return err
-	}
-	if currentVersion != e.Version {
-		err = c.runQueryExec("ALTER EXTENSION "+identifier(e.name)+" UPDATE TO $1", e.Version)
+	if e.Version != "" {
+		currentVersion, err := c.runQueryGetOneField("SELECT extversion FROM pg_extension WHERE extname = $1", e.name)
 		if err != nil {
 			return err
 		}
-		log.Infof("Extension '%s'.'%s' succesfully updated to version '%s'", e.db.name, e.name, e.Version)
+		if currentVersion != e.Version {
+			err = c.runQueryExec(fmt.Sprintf("ALTER EXTENSION %s UPDATE TO %s", identifier(e.name),
+				quotedSqlValue(e.Version)))
+			if err != nil {
+				return err
+			}
+			log.Infof("Extension '%s'.'%s' succesfully updated to version '%s'", e.db.name, e.name, e.Version)
+		}
+	}
+	if e.Schema != "" {
+		qry := `SELECT pg_namespace.nspname 
+				FROM pg_extension INNER JOIN pg_namespace
+				ON extnamespace = pg_namespace.oid
+				WHERE extname = $1;`
+		currentSchema, err := c.runQueryGetOneField(qry, e.name)
+		if err != nil {
+			return err
+		}
+		if currentSchema != e.Schema {
+			err = c.runQueryExec(fmt.Sprintf("ALTER EXTENSION %s SET SCHEMA %s", identifier(e.name), identifier(e.Schema)))
+			if err != nil {
+				return err
+			}
+			log.Infof("Extension '%s'.'%s' succesfully moved to schema '%s'", e.db.name, e.name, e.Schema)
+		}
 	}
 	return nil
 }

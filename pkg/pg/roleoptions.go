@@ -64,7 +64,7 @@ var (
 		"SUPERUSER":   "rolsuper",
 		"CREATEROLE ": "rolcreaterole",
 		"CREATEUSER":  "rolcreaterole",
-		"INHERIT ":    "rolinherit",
+		"INHERIT":    "rolinherit",
 		"LOGIN":       "rolcanlogin",
 		"REPLICATION": "rolreplication",
 	}

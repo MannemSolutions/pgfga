@@ -1,3 +1,5 @@
+all: inttest
+
 build:
 	go build ./cmd/pgfga
 
@@ -16,3 +18,6 @@ sec:
 	gosec ./...
 lint:
 	golangci-lint run
+
+inttest:
+	./docker-compose-tests.sh

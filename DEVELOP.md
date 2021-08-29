@@ -8,7 +8,8 @@ Mannem Solutions is commited to keep improving the project.
 
 ## Contributing
 
-If you want to contibute, please do. Just submit a Pull Request and we will work from there.
+If you want to contibute, please do.
+Just submit a Pull Request and we will work from there.
 
 ## Versioning
 pgfga uses semantic versioning, which means:
@@ -34,18 +35,9 @@ Will start dlv to debug the software.
 make debug
 ```
 
-## Make build-image
-
-Will build and push a docker container with pgfga.
-
-```
-make build-image
-```
-
 ### Make test
 
-Runs all available go tests like gosec, go test (unittest), golint, etc.
-Note that all of these tests are also part of the github ci workflows.
+Runs gosec and golangci-lint.
 
 ```
 make test
@@ -72,7 +64,7 @@ make run
 
 ### Make all
 
-Will build the container image locally and run the unittest with docker-compose as a demo.
+Will run the inttest as a demo
 
 ```
 make
