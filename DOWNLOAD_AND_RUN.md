@@ -58,7 +58,7 @@ services:
       - ./testdata/ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom
 ```
 **Note** that the ldap needs content.
-Please see the [github project for pgfga](for a working example) of docker-compose setting up an ldap, and postgres, and running pgfga against it, which consists of.
+Please see the [github project for pgfga](https://github.com/MannemSolutions/pgfga) for a working example of docker-compose setting up a ldap, and postgres, and running pgfga against it, which consists of.
 - The [docker-compose.yml file](https://github.com/MannemSolutions/pgfga/blob/docs/docker-compose.yml)
 - The [bash script running docker compose](https://github.com/MannemSolutions/pgfga/blob/docs/docker-compose-tests.sh)
 - The [ldif file we use](https://github.com/MannemSolutions/pgfga/blob/docs/testdata/ldif/01_objects.ldif)

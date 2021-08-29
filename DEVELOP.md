@@ -4,12 +4,12 @@
 
 Pgfga was initially developed in-house by [bol.com](https://www.bol.com) as a private python solution called pgcdfga.
 The code was later renamed to pgfga, made publicly available,  and converted to GoLang by Mannem Solutions.
-Mannem Solutions is commited to keep improving the project.
+Mannem Solutions is committed to keep improving the project.
 
 ## Contributing
 
-If you want to contibute, please do.
-Just submit a Pull Request and we will work from there.
+If you want to contribute, please do.
+Just submit a Pull Request, and we will work from there.
 
 ## Versioning
 pgfga uses semantic versioning, which means:
@@ -48,7 +48,7 @@ make test
 Runs docker compose to setup 3 containers:
 - an openldap container
 - a postgres container
-- a pgfga container that will sync users and groups from openldap into postgres and setup the other configured objects
+- a pgfga container that will sync users and groups from openldap into postgres and set up the other configured objects
 
 ```
 make inttest
