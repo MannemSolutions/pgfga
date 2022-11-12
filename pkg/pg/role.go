@@ -29,7 +29,6 @@ func NewRole(handler *Handler, name string, options RoleOptions, state State) (r
 				return r, fmt.Errorf("cannot change state from %s to %s for existing role %s", state.String(),
 					role.State.String(), name)
 			}
-			state = Present
 		}
 		for _, option := range options {
 			role.options[option.name] = option
@@ -40,7 +39,7 @@ func NewRole(handler *Handler, name string, options RoleOptions, state State) (r
 		handler: handler,
 		name:    name,
 		options: options,
-		State: state,
+		State:   state,
 	}
 	if state.Bool() {
 		err = r.Create()
@@ -57,7 +56,7 @@ func NewRole(handler *Handler, name string, options RoleOptions, state State) (r
 func (r *Role) Drop() (err error) {
 	ph := r.handler
 	c := ph.conn
-	if ! ph.strictOptions.Users {
+	if !ph.strictOptions.Users {
 		log.Infof("not dropping user/role %s (config.strict.roles is not True)", r.name)
 		return nil
 	}

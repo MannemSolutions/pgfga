@@ -6,7 +6,6 @@ import (
 	"github.com/mannemsolutions/pgfga/pkg/ldap"
 	"github.com/mannemsolutions/pgfga/pkg/pg"
 	"go.uber.org/zap/zapcore"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -80,11 +79,11 @@ func NewConfig() (config FgaConfig, err error) {
 
 	// This only parsed as yaml, nothing else
 	// #nosec
-	yamlConfig, err := ioutil.ReadFile(configFile)
+	yamlConfig, err := os.ReadFile(configFile)
 	if err != nil {
 		return config, err
 	}
 	err = yaml.Unmarshal(yamlConfig, &config)
-        config.GeneralConfig.Debug = config.GeneralConfig.Debug || debug
+	config.GeneralConfig.Debug = config.GeneralConfig.Debug || debug
 	return config, err
 }
