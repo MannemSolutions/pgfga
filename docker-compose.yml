@@ -32,6 +32,11 @@ services:
       POSTGRES_PASSWORD: not_this_but_in_ldap
   pgtester:
     image: mannemsolutions/pgtester
+    command:
+      - pgtester
+      - /host/testdata/pgtester/tests.yaml
+    volumes:
+    - ./:/host
   pgfga:
     build: .
     environment:
